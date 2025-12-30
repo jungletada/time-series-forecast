@@ -28,12 +28,10 @@ strides=(24 24 24 24)
 for i in "${!pred_lens[@]}"; do
 	python -u run.py \
 		--is_training 1 \
-		--root_path ./data/ETT/ \
-		--data_path ETTm1.csv \
+		--data_name $dataset \
 		--model_id wpmixer \
 		--model $model_name \
 		--task_name long_term_forecast \
-		--data $dataset \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \
