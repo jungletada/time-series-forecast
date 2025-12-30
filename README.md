@@ -1,6 +1,6 @@
 # Time Series Library (TSLib)
 TSLib is an open-source library for deep learning researchers, especially for deep time series analysis.
-
+Modified by the team of Waseda University, Tokyo, Japan
 ## Getting Started
 
 ### Prepare Data
@@ -9,13 +9,13 @@ You can obtain the well-preprocessed datasets from [[Google Drive]](https://driv
 ### Installation
 1. Clone this repository.
    ```bash
-   git clone https://github.com/thuml/Time-Series-Library.git
-   cd Time-Series-Library
+   git clone https://github.com/jungletada/time-series-forecast.git
+   cd time-series-forecast
    ```
 
 2. Create a new Conda environment.
    ```bash
-   conda create -n tslib python=3.11
+   conda create -n tslib python=3.12
    conda activate tslib
    ```
 
@@ -24,7 +24,7 @@ You can obtain the well-preprocessed datasets from [[Google Drive]](https://driv
    pip install -r requirements.txt
    ```
 
-4. Install Dependencies for Mamba Model (Required for Time-Series-Library/models/Mamba.py)
+4. Install Dependencies for Mamba Model (Required for time-series-forecast/models/Mamba.py)
    > ⚠️ **CUDA Compatibility Notice**
    > The prebuilt Mamba wheel is **CUDA-version specific**.
    > Please make sure to install the wheel that matches your local CUDA version
@@ -37,7 +37,7 @@ You can obtain the well-preprocessed datasets from [[Google Drive]](https://driv
    pip install https://github.com/state-spaces/mamba/releases/download/v2.2.6.post3/mamba_ssm-2.2.6.post3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
    ```
 
-5. Install Dependencies for Moirai Model (Required for Time-Series-Library/models/Moirai.py)
+5. Install Dependencies for Moirai Model (Required for time-series-forecast/models/Moirai.py)
    ```bash
    pip install uni2ts --no-deps
    ```
@@ -45,7 +45,7 @@ You can obtain the well-preprocessed datasets from [[Google Drive]](https://driv
 ### Docker Deployment
 ```bash
 # Build and start the Docker container in detached mode
-docker compose -f 'Time-Series-Library/docker-compose.yml' up -d --build
+docker compose -f 'time-series-forecast/docker-compose.yml' up -d --build
 
 # Download / place the dataset into a newly created folder ./dataset at the repository root
 mkdir -p dataset  # create the dataset directory
@@ -58,22 +58,6 @@ docker exec -it tslib bash
 
 # Switch to the workspace directory inside the container
 cd /workspace
-
-# Run zero-shot forecasting with the pre-trained Moirai model
-python -u run.py \
-  --task_name zero_shot_forecast \   # task type: zero-shot forecasting
-  --is_training 0 \                  # 0 = inference only (no training)
-  --root_path ./dataset/ETT-small/ \ # root directory of the dataset
-  --data_path ETTh1.csv \            # dataset file name
-  --model_id ETTh1_512_96 \          # experiment/model identifier
-  --model Moirai \                   # model name (TimesFM / Moirai)
-  --data ETTh1 \                     # dataset name
-  --features M \                     # multivariate forecasting
-  --seq_len 512 \                    # input sequence length
-  --pred_len 96 \                    # prediction horizon
-  --enc_in 7 \                       # number of input variables
-  --des 'Exp' \                      # experiment description
-  --itr 1                             # number of runs
 ```
 
 
@@ -89,6 +73,7 @@ export CUDA_VISIBLE_DEVICES=0
 # 1. Long-term forecasting
 python -u run.py \
     --task_name long_term_forecast \
+    --data_name Etth1 \
     --is_training 1 \
     --model_id test_long \
     --model DLinear \
@@ -132,7 +117,7 @@ bash scripts/short_term_forecast/TimesNet_M4.sh
 ### Inspect the project structure:
 
 ```
-Time-Series-Library/
+time-series-forecast/
 ├── README.md                     # Official README with tasks, leaderboard, usage
 ├── requirements.txt              # pip dependency list for quick environment setup
 ├── LICENSE / CONTRIBUTING.md     # Upstream license and contribution guide
