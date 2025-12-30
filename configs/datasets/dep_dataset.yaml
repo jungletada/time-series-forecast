@@ -2,8 +2,58 @@ ETTh1_dep:
   data_type: ETTh1_dep
   root_path: dataset/ETT-small/
   data_path: ETTh1.csv
+  k: 3
 
 ETTh2_dep:
   data_type: ETTh2_dep
   root_path: dataset/ETT-small/
   data_path: ETTh2.csv
+  k: 3
+
+ETTm1_dep:
+  data_type: ETTm1_dep
+  root_path: dataset/ETT-small/
+  data_path: ETTm1.csv
+  k: 3
+
+ETTm2_dep:
+  data_type: ETTm2_dep
+  root_path: dataset/ETT-small/
+  data_path: ETTm2.csv
+  k: 3
+
+Exchange_dep:
+  data_type: custom
+  root_path: dataset/exchange_rate/
+  data_path: exchange_rate.csv
+  k: 3
+
+Illness_dep:
+  data_type: custom
+  root_path: dataset/illness/
+  data_path: national_illness.csv
+  k: 1
+
+Weather_dep:
+  data_type: custom
+  root_path: dataset/weather/
+  data_path: weather.csv
+  k: 3
+
+Traffic_dep:
+  data_type: custom
+  root_path: dataset/traffic/
+  data_path: traffic.csv
+  k: 3
+
+Electricity_dep:
+  data_type: custom
+  root_path: dataset/electricity/
+  data_path: electricity.csv
+  k: 3
+
+M4_dep:
+  data_type: custom
+  root_path: dataset/m4/
+  seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']
+  k: 3

@@ -18,7 +18,6 @@ def get_args():
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
-    parser.add_argument('--use_mnn', type=int, default=1, help='use mnn for inference.')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
@@ -223,36 +222,16 @@ if __name__ == '__main__':
     else:
         Exp = Exp_Dep_Long_Term_Forecast
 
-    if args.is_training:
-        for exp_time in range(args.itr):
-            # setting record of experiments
-            setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-            os.makedirs(os.path.join(args.results, setting), exist_ok=True)
-            logger = get_logger(os.path.join(args.results, setting, 'run.log'))
-            exp = Exp(args, logger)  # set experiments
-            logger.info(f'\n\n>>>>>>>start training : {setting} >>>>>>>>>>>>>>>>>>>>>>>>>>')
-            print_args(args, logger)
-            exp.train(setting)
-
-            logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            exp.test(setting)
-            
-            if args.gpu_type == 'mps':
-                torch.backends.mps.empty_cache()
-            elif args.gpu_type == 'cuda':
-                torch.cuda.empty_cache()
+    exp_time = 0
+    setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+    os.makedirs(os.path.join(args.results, setting), exist_ok=True)
+    logger = get_logger(os.path.join(args.results, setting, 'test.log'))
+    exp = Exp(args, logger)  # set experiments
+    logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+    print_args(args, logger)
+    exp.test(setting, test=1)
     
-    else:
-        exp_time = 0
-        setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-        os.makedirs(os.path.join(args.results, setting), exist_ok=True)
-        logger = get_logger(os.path.join(args.results, setting, 'test.log'))
-        exp = Exp(args, logger)  # set experiments
-        logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print_args(args, logger)
-        exp.test(setting, test=1)
-        
-        if args.gpu_type == 'mps':
-            torch.backends.mps.empty_cache()
-        elif args.gpu_type == 'cuda':
-            torch.cuda.empty_cache()
+    if args.gpu_type == 'mps':
+        torch.backends.mps.empty_cache()
+    elif args.gpu_type == 'cuda':
+        torch.cuda.empty_cache()

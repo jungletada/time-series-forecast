@@ -11,32 +11,35 @@ d_model=16
 d_ff=32
 train_epochs=10
 patience=10
+pred_lens=(96 192 336 720)
 
-# python -u run.py \
-#   --task_name long_term_forecast \
-#   --is_training 1 \
-#   --data_name ETTh1 \
-#   --model_id ETTh1_$seq_len'_'96 \
-#   --model $model_name \
-#   --features M \
-#   --seq_len $seq_len \
-#   --label_len 0 \
-#   --pred_len 96 \
-#   --e_layers $e_layers \
-#   --enc_in 7 \
-#   --c_out 7 \
-#   --des 'Exp' \
-#   --itr 1 \
-#   --d_model $d_model \
-#   --d_ff $d_ff \
-#   --learning_rate $learning_rate \
-#   --train_epochs $train_epochs \
-#   --patience $patience \
-#   --batch_size 128 \
-#   --down_sampling_layers $down_sampling_layers \
-#   --down_sampling_method avg \
-#   --down_sampling_window $down_sampling_window
-
+for i in "${!pred_lens[@]}"; do
+  python -u run.py \
+      --task_name long_term_forecast \
+      --is_training 1 \
+      --data_name ETTh1 \
+      --model_id ETTh1_$seq_len'_'${pred_lens[$i]} \
+      --model $model_name \
+      --seq_len $seq_len \
+      --label_len 0 \
+      --pred_len ${pred_lens[$i]} \
+      --e_layers $e_layers \
+      --features S \
+      --target OT \
+      --enc_in 1 \
+      --c_out 1 \
+      --des 'Exp' \
+      --itr 1 \
+      --d_model $d_model \
+      --d_ff $d_ff \
+      --learning_rate $learning_rate \
+      --train_epochs $train_epochs \
+      --patience $patience \
+      --batch_size 128 \
+      --down_sampling_layers $down_sampling_layers \
+      --down_sampling_method avg \
+      --down_sampling_window $down_sampling_window
+done
 
 # python -u run.py \
 #   --task_name long_term_forecast \
@@ -90,27 +93,27 @@ patience=10
 #   --down_sampling_window $down_sampling_window
 
 
-python -u run.py \
-  --task_name long_term_forecast \
-  --is_training 1 \
-  --data_name ETTh1 \
-  --model_id ETTh1_$seq_len'_'720 \
-  --model $model_name \
-  --features M \
-  --seq_len $seq_len \
-  --label_len 0 \
-  --pred_len 720 \
-  --e_layers $e_layers \
-  --enc_in 7 \
-  --c_out 7 \
-  --des 'Exp' \
-  --itr 1 \
-  --d_model $d_model \
-  --d_ff $d_ff \
-  --learning_rate $learning_rate \
-  --train_epochs $train_epochs \
-  --patience $patience \
-  --batch_size 128 \
-  --down_sampling_layers $down_sampling_layers \
-  --down_sampling_method avg \
-  --down_sampling_window $down_sampling_window
+# python -u run.py \
+#   --task_name long_term_forecast \
+#   --is_training 1 \
+#   --data_name ETTh1 \
+#   --model_id ETTh1_$seq_len'_'720 \
+#   --model $model_name \
+#   --features M \
+#   --seq_len $seq_len \
+#   --label_len 0 \
+#   --pred_len 720 \
+#   --e_layers $e_layers \
+#   --enc_in 7 \
+#   --c_out 7 \
+#   --des 'Exp' \
+#   --itr 1 \
+#   --d_model $d_model \
+#   --d_ff $d_ff \
+#   --learning_rate $learning_rate \
+#   --train_epochs $train_epochs \
+#   --patience $patience \
+#   --batch_size 128 \
+#   --down_sampling_layers $down_sampling_layers \
+#   --down_sampling_method avg \
+#   --down_sampling_window $down_sampling_window
