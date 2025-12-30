@@ -1,0 +1,9 @@
+model_name:WPMixer
+wavelets:[db2, db3, db2, db2]
+levels:[2, 2, 1, 1]
+tfactors:[5, 5, 3, 5]
+dfactors:[8, 5, 3, 3]
+strides:[8, 8, 8, 8]
+d_models:[256, 256, 256, 128]
+dropouts:[0.4, 0.05, 0.0, 0.2]
+patch_lens:[16, 16, 16, 16]

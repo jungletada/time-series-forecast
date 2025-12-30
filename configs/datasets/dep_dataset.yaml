@@ -1,0 +1,9 @@
+ETTh1_dep:
+  data_type: ETTh1_dep
+  root_path: dataset/ETT-small/
+  data_path: ETTh1.csv
+
+ETTh2_dep:
+  data_type: ETTh2_dep
+  root_path: dataset/ETT-small/
+  data_path: ETTh2.csv
