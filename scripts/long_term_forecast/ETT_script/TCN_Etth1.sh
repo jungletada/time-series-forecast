@@ -3,8 +3,8 @@ export CUDA_VISIBLE_DEVICES=0
 model_name=TCN
 dataset=ETTh1
 seq_len=96
-d_model=32
-e_layers=3
+d_model=16
+e_layers=4
 pred_lens=(96 192 336 720)
 
 # Loop over datasets and prediction lengths

@@ -25,7 +25,7 @@ def get_args():
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
     parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name', 
                         choices=['ETTh1_dep', 'ETTh2_dep'])
-    parser.add_argument('--features', type=str, default='M',
+    parser.add_argument('--features', type=str, default='S',
                         help='forecasting task, options:[M, S, MS]; " \
                         "M: multivariate predict multivariate, S: univariate predict univariate, MS: multivariate predict univariate',
                         choices=['M', 'S', 'MS'])
@@ -228,9 +228,9 @@ if __name__ == '__main__':
             setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
             os.makedirs(os.path.join(args.results, setting), exist_ok=True)
             logger = get_logger(os.path.join(args.results, setting, 'run.log'))
-            print_args(args, logger)
             exp = Exp(args, logger)  # set experiments
             logger.info(f'\n\n>>>>>>>start training : {setting} >>>>>>>>>>>>>>>>>>>>>>>>>>')
+            print_args(args, logger)
             exp.train(setting)
 
             logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
@@ -246,9 +246,9 @@ if __name__ == '__main__':
         setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         os.makedirs(os.path.join(args.results, setting), exist_ok=True)
         logger = get_logger(os.path.join(args.results, setting, 'test.log'))
-        print_args(args, logger)
         exp = Exp(args, logger)  # set experiments
         logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+        print_args(args, logger)
         exp.test(setting, test=1)
         
         if args.gpu_type == 'mps':

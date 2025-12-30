@@ -6,8 +6,8 @@ from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 from utils.augmentation import run_augmentation_single
-
 warnings.filterwarnings('ignore')
+
 
 class Dataset_ETTh_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
@@ -169,7 +169,7 @@ class Dataset_ETTh_Decomposed(Dataset):
             scale = self.scaler.scale_.reshape(1, C, 1)
             
             # --- 关键 Scaling 逻辑 ---
-            # data_processed: [T, C, 3]
+            # data_processed: [T, C, 3] -> [96, C, 3] -> [336, C, 3]
             # 0: High, 1: Mid, 2: Low
             
             # 1. High Freq & Mid Freq: 仅除以 scale (假设它们是围绕0波动的)

@@ -4,7 +4,8 @@ from data_provider.data_loader import \
     PSMSegLoader, MSLSegLoader, \
     SMAPSegLoader, SMDSegLoader, \
     SWATSegLoader, UEAloader
-from data_provider.data_dep_loader import Dataset_ETTh_Decomposed
+from data_provider.data_dep_loader import \
+    Dataset_ETTh_Decomposed, Dataset_Custom_Decomposed
 from data_provider.uea import collate_fn
 from torch.utils.data import DataLoader
 
