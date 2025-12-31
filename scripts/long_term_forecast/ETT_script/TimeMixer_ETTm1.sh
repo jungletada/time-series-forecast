@@ -37,6 +37,8 @@ for i in "${!pred_lens[@]}"; do
     --down_sampling_method avg \
     --down_sampling_window $down_sampling_window
 done
+
+
 # python -u run.py \
 #   --task_name long_term_forecast \
 #   --is_training 1 \
