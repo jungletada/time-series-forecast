@@ -1,3 +1,6 @@
 long_term_forecast_ETTh2_96_192_TCN_ETTh2_dep_seq96_pred192_ft(S)_#0  
 mse:0.17195, mae:0.32095, rmse:0.41467, mape:0.69073, mspe:21.07536
 
+{"task_name": "long_term_forecast", "model_id": "ETTh2_96_192", "model": "TCN", "data_type": "ETTh2_dep", "data_path": "ETTh2.csv", "seq_len": 96, "pred_len": 192, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh2/long_term_forecast_ETTh2_96_192_TCN_ETTh2_dep_seq96_pred192_ft(S)_#0"}  
+mse:0.15565, mae:0.30973, rmse:0.39452, mape:0.79551, mspe:52.24593
+

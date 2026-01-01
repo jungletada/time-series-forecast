@@ -13,7 +13,7 @@ class Dataset_ETT_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, time_enc=0, freq='h', 
-                 seasonal_patterns=None):
+                 seasonal_patterns=None, mnn='mlp'):
         use_mnn = getattr(args, 'use_mnn', 0)
         if use_mnn == 1:
             self.test_mnn = True
@@ -21,6 +21,7 @@ class Dataset_ETT_Decomposed(Dataset):
             self.test_mnn = False
         # size [seq_len, label_len, pred_len]
         self.args = args
+        self.mnn = mnn
         if size is None:
             self.seq_len = 24 * 4 * 4
             self.label_len = 24 * 4
@@ -156,7 +157,7 @@ class Dataset_ETT_Decomposed(Dataset):
         data_processed = np.stack([comp1, comp2, comp3], axis=-1)
 
         if self.set_type == 2 and self.test_mnn:
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_cd.npy")
+            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd.npy")
             data_mnn = np.load(mnn_npy_path)
             data_mnn = data_mnn.reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
@@ -297,6 +298,7 @@ class Dataset_Custom_Decomposed(Dataset):
         
         if os.path.exists(npy_path):
             data_npy = np.load(npy_path)
+            print(f"Loaded decomposed data from {npy_path}")
         else:
             raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}")
 

@@ -26,7 +26,7 @@ def get_args():
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
     parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name', 
-                        choices=['ETTh1_dep', 'ETTh2_dep'])
+                        choices=['ETTh1_dep', 'ETTh2_dep', 'ETTm1_dep', 'ETTm2_dep'])
     parser.add_argument('--features', type=str, default='S',
                         help='forecasting task, options:[M, S, MS]; " \
                         "M: multivariate predict multivariate, S: univariate predict univariate, MS: multivariate predict univariate',
