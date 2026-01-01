@@ -185,7 +185,6 @@ class PastDecomposableMixing(nn.Module):
 
 
 class Model(nn.Module):
-
     def __init__(self, configs):
         super(Model, self).__init__()
         self.configs = configs
@@ -202,11 +201,11 @@ class Model(nn.Module):
         self.enc_in = configs.enc_in
 
         if self.channel_independence:
-            self.enc_embedding = DataEmbedding_wo_pos(1, configs.d_model, configs.embed, configs.freq,
-                                                      configs.dropout)
+            self.enc_embedding = DataEmbedding_wo_pos(
+                1, configs.d_model, configs.embed, configs.freq,configs.dropout)
         else:
-            self.enc_embedding = DataEmbedding_wo_pos(configs.enc_in, configs.d_model, configs.embed, configs.freq,
-                                                      configs.dropout)
+            self.enc_embedding = DataEmbedding_wo_pos(
+                configs.enc_in, configs.d_model, configs.embed, configs.freq, configs.dropout)
 
         self.layer = configs.e_layers
 
@@ -327,9 +326,7 @@ class Model(nn.Module):
         return x_enc, x_mark_enc
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-
         x_enc, x_mark_enc = self.__multi_scale_process_inputs(x_enc, x_mark_enc)
-
         x_list = []
         x_mark_list = []
         if x_mark_enc is not None:

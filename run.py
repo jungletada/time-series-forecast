@@ -12,7 +12,7 @@ from exp.exp_imputation import Exp_Imputation
 from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
 from exp.exp_zero_shot_forecasting import Exp_Zero_Shot_Forecast
-from utils.tools import seed_everything
+from utils.tools import seed_everything, load_data_config
 
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
@@ -163,18 +163,6 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def load_data_config(args, config_path):  
-    with open(config_path, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    if args.data_name not in config:
-        raise ValueError(f'Dataset {args.data_name} not found in config file')
-    config = config[args.data_name]
-    args.data_type = config['data_type']
-    args.root_path = config['root_path']
-    args.data_path = config.get('data_path', None)
-    args.seasonal_patterns = config.get('seasonal_patterns', None)
-    return args
-
 def get_logger(log_file='run.log'):
     """Set up logging to a file, replacing print with logger.info or logger.error
     """
@@ -235,8 +223,8 @@ if __name__ == '__main__':
         for exp_time in range(args.itr):
             # setting record of experiments
             save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-            save_dir = os.path.join(args.results, args.data_type.replace('_dep', ''), save_path)
-            os.makedirs(save_dir, exist_ok=True)
+            save_dir = os.path.join(args.data_type.replace('_dep', ''), save_path)
+            os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
                 'task_name': args.task_name,
                 'model_id': args.model_id,
@@ -250,7 +238,7 @@ if __name__ == '__main__':
                 'exp_time': exp_time,
                 'save_dir': save_dir,
             }
-            logger = get_logger(os.path.join(save_dir, 'run.log'))
+            logger = get_logger(os.path.join(args.results, save_dir, 'run.log'))
             logger.info(json.dumps(vars(args), default=str))
             exp = Exp(args, logger)  # set experiments
             logger.info(f'\n\n>>>>>>>start training : {json.dumps(setting)} >>>>>>>>>>>>>>>>>>>>>>>>>>')
@@ -269,7 +257,7 @@ if __name__ == '__main__':
         # setting record of experiments
         save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         save_dir = os.path.join(args.results, args.data_type.replace('_dep', ''), save_path)
-        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {
             'task_name': args.task_name,
             'model_id': args.model_id,
@@ -283,7 +271,7 @@ if __name__ == '__main__':
             'exp_time': exp_time,
             'save_dir': save_dir,
         }
-        logger = get_logger(os.path.join(save_dir, 'test.log'))
+        logger = get_logger(os.path.join(args.results, save_dir, 'test.log'))
         logger.info(json.dumps(vars(args), default=str))
         exp = Exp(args, logger)  # set experiments
         logger.info(f'\n\n>>>>>>>testing : {json.dumps(setting)} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')

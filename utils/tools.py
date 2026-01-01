@@ -1,5 +1,7 @@
 import os
 import math
+
+import yaml
 import random
 
 import numpy as np
@@ -10,6 +12,7 @@ import pandas as pd
 
 plt.switch_backend('agg')
 
+
 def seed_everything(seed=2026):
     random.seed(seed)
     torch.manual_seed(seed)
@@ -19,6 +22,18 @@ def seed_everything(seed=2026):
     if torch.backends.mps.is_available():
         torch.backends.mps.manual_seed(seed)
 
+
+def load_data_config(args, config_path):  
+    with open(config_path, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    if args.data_name not in config:
+        raise ValueError(f'Dataset {args.data_name} not found in config file')
+    config = config[args.data_name]
+    args.data_type = config['data_type']
+    args.root_path = config['root_path']
+    args.data_path = config.get('data_path', None)
+    args.seasonal_patterns = config.get('seasonal_patterns', None)
+    return args
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))

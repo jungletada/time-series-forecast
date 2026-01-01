@@ -44,7 +44,7 @@ class Dataset_ETT_Decomposed(Dataset):
         # k parameter: IMFs 0~k-1 (High), k (Mid), k+1~end (Low)
         # 默认 k=3，意味着 IMF0, IMF1, IMF2 是高频，IMF3 是中频，剩下的低频
         # 根据实际 decomposition.py 的 max_imfs (例如10) 来调整这个 k
-        self.k = getattr(self.args, 'k', 3) 
+        self.k = getattr(self.args, 'selected_k', 2) 
         
         # 这里的 borders 仅用于 CSV 时间戳的切分
         # 注意：必须与 decomposition.py 中的逻辑严格一致
@@ -248,10 +248,9 @@ class Dataset_ETT_Decomposed(Dataset):
         return inverse_data.reshape(shape)
     
 class Dataset_Custom_Decomposed(Dataset):
-    def __init__(self, args, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, time_enc=0, freq='h', 
-                 seasonal_patterns=None, split_ratio=(0.7, 0.2)):
+    def __init__(
+        self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
+        target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None, split_ratio=(0.7, 0.2)):
         # [seq_len, label_len, pred_len]
         use_mnn = getattr(args, 'use_mnn', 0)
         if use_mnn == 1:

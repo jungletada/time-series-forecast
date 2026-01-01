@@ -178,11 +178,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             self.logger.info('loading model')
-            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
+            self.model.load_state_dict(torch.load(
+                os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
 
         preds = []
         trues = []
-        result_path = setting['save_dir']
+        result_path = os.path.join(self.args.results, setting['save_dir'])
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 

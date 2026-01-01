@@ -214,11 +214,11 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         preds = []
         trues = []
         
-        result_path = setting['save_dir']
+        result_path = os.path.join(self.args.results, setting['save_dir'])
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
-        for m in self.model: m.eval()
+
             
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
