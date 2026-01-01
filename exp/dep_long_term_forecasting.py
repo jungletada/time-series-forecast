@@ -214,7 +214,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         preds = []
         trues = []
         
-        result_path = os.path.join(self.args.results, setting['save_dir'])
+        result_path = setting['save_dir']
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
