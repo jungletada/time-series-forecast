@@ -1,14 +1,17 @@
+import os
+import time
+import json
+import warnings
+import numpy as np
+import torch
+import torch.nn as nn
+from torch import optim
+
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics import metric
-import torch
-import torch.nn as nn
-from torch import optim
-import os
-import time
-import warnings
-import numpy as np
+
 from utils.dtw_metric import dtw, accelerated_dtw
 # from utils.augmentation import run_augmentation, run_augmentation_single
 warnings.filterwarnings('ignore')
@@ -80,7 +83,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
 
-        ckpt_path = os.path.join(self.args.checkpoints, setting)
+        ckpt_path = os.path.join(self.args.checkpoints, setting['save_dir'])
         if not os.path.exists(ckpt_path):
             os.makedirs(ckpt_path)
 
@@ -130,10 +133,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     train_loss.append(loss.item())
 
                 if (iter_step + 1) % self.args.print_freq == 0:
-                    self.logger.info("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(iter_step + 1, epoch + 1, loss.item()))
+                    self.logger.info("\t iters: {0}, epoch: {1} | loss: {2:.7f}".format(iter_step + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - iter_step)
-                    self.logger.info('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+                    self.logger.info('\t speed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 
@@ -145,7 +148,14 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     loss.backward()
                     model_optim.step()
 
+            # --- Added Train Time per Epoch ---
             self.logger.info("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            # --- Added Peak GPU Memory Logic ---
+            if torch.cuda.is_available():
+                max_memory = torch.cuda.max_memory_allocated() / 1024 / 1024
+                self.logger.info("Epoch: {} Peak GPU memory: {:.2f} MB".format(epoch + 1, max_memory))
+                torch.cuda.reset_peak_memory_stats()
+            # -----------------------------------
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
@@ -168,13 +178,17 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             self.logger.info('loading model')
-            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')))
+            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
 
         preds = []
         trues = []
-        result_path = os.path.join(self.args.results, setting)
+        result_path = os.path.join(self.args.results, setting['save_dir'])
         if not os.path.exists(result_path):
             os.makedirs(result_path)
+
+        # --- Added Initialization ---
+        inference_time = 0
+        # ----------------------------
 
         self.model.eval()
         with torch.no_grad():
@@ -188,13 +202,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+                # --- Added Timing Start ---
+                start_time = time.time()
+                # --------------------------
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.amp.autocast('cuda'):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-
+                # --- Added Timing End ---
+                inference_time += time.time() - start_time
+                # ------------------------
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, :]
                 batch_y = batch_y[:, -self.args.pred_len:, :].to(self.device)
@@ -230,7 +249,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         self.logger.info(f'test shape: {preds.shape}, {trues.shape}')
-
+        # --- Added Latency Printing ---
+        avg_latency = (inference_time / (i + 1)) * 1000
+        self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
+        # ------------------------------
         # dtw calculation
         if self.args.use_dtw:
             dtw_list = []
@@ -251,7 +273,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         self.logger.info(f'End of testing.\n\n')
 
         f = open(os.path.join(result_path, 'result_long_term_forecast.txt'), 'a')
-        f.write(setting + "  \n")
+        f.write(json.dumps(setting) + "  \n")
         f.write('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}, mape:{:.5f}, mspe:{:.5f}, dtw:{}'.format(mse, mae, rmse, mape, mspe, dtw))
         f.write('\n')
         f.write('\n')

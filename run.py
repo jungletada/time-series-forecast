@@ -3,7 +3,7 @@ import sys
 import yaml
 import logging
 import argparse
-
+import json
 import torch
 import torch.backends
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
@@ -195,10 +195,6 @@ def get_logger(log_file='run.log'):
         logger.addHandler(ch)
     return logger
 
-def print_args(args, logger):
-    for k, v in vars(args).items():
-        logger.info(f'{k}: {v}')
-            
 if __name__ == '__main__':
     args = get_args()
     args = load_data_config(args, args.data_config)
@@ -238,15 +234,29 @@ if __name__ == '__main__':
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-            os.makedirs(os.path.join(args.results, setting), exist_ok=True)
-            logger = get_logger(os.path.join(args.results, setting, 'run.log'))
-            print_args(args, logger)
+            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_dir = os.path.join(args.results, args.data_type.replace('_dep', ''), save_path)
+            os.makedirs(save_dir, exist_ok=True)
+            setting = {
+                'task_name': args.task_name,
+                'model_id': args.model_id,
+                'model': args.model,
+                'data_type': args.data_type,
+                'data_path': args.data_path,
+                'seq_len': args.seq_len,
+                'pred_len': args.pred_len,
+                'features': args.features,
+                'target': args.target,
+                'exp_time': exp_time,
+                'save_dir': save_dir,
+            }
+            logger = get_logger(os.path.join(save_dir, 'run.log'))
+            logger.info(json.dumps(vars(args), default=str))
             exp = Exp(args, logger)  # set experiments
-            logger.info(f'\n\n>>>>>>>start training : {setting} >>>>>>>>>>>>>>>>>>>>>>>>>>')
+            logger.info(f'\n\n>>>>>>>start training : {json.dumps(setting)} >>>>>>>>>>>>>>>>>>>>>>>>>>')
             exp.train(setting)
 
-            logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+            logger.info(f'\n\n>>>>>>>testing : {json.dumps(setting)} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
             exp.test(setting)
             
             if args.gpu_type == 'mps':
@@ -256,12 +266,27 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        setting = f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-        os.makedirs(os.path.join(args.results, setting), exist_ok=True)
-        logger = get_logger(os.path.join(args.results, setting, 'test.log'))
-        print_args(args, logger)
+        # setting record of experiments
+        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_dir = os.path.join(args.results, args.data_type.replace('_dep', ''), save_path)
+        os.makedirs(save_dir, exist_ok=True)
+        setting = {
+            'task_name': args.task_name,
+            'model_id': args.model_id,
+            'model': args.model,
+            'data_type': args.data_type,
+            'data_path': args.data_path,
+            'seq_len': args.seq_len,
+            'pred_len': args.pred_len,
+            'features': args.features,
+            'target': args.target,
+            'exp_time': exp_time,
+            'save_dir': save_dir,
+        }
+        logger = get_logger(os.path.join(save_dir, 'test.log'))
+        logger.info(json.dumps(vars(args), default=str))
         exp = Exp(args, logger)  # set experiments
-        logger.info(f'\n\n>>>>>>>testing : {setting} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+        logger.info(f'\n\n>>>>>>>testing : {json.dumps(setting)} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
         exp.test(setting, test=1)
         
         if args.gpu_type == 'mps':

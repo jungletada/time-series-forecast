@@ -2,7 +2,7 @@ import os
 import time
 import warnings
 import numpy as np
-
+import json
 import torch
 import torch.nn as nn
 from torch import optim
@@ -111,7 +111,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
 
-        ckpt_path = os.path.join(self.args.checkpoints, setting)
+        ckpt_path = os.path.join(self.args.checkpoints, setting['save_dir'])
         if not os.path.exists(ckpt_path):
             os.makedirs(ckpt_path)
 
@@ -209,12 +209,12 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             self.logger.info('loading model')
-            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')))
+            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
 
         preds = []
         trues = []
         
-        result_path = os.path.join(self.args.results, setting)
+        result_path = os.path.join(self.args.results, setting['save_dir'])
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
@@ -285,7 +285,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         
         # Save results
         f = open(os.path.join(result_path, 'result_dep_long_term_forecast.txt'), 'a')
-        f.write(setting + "  \n")
+        f.write(json.dumps(setting) + "  \n")
         f.write('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}, mape:{:.5f}, mspe:{:.5f}'.format(mse, mae, rmse, mape, mspe))
         f.write('\n\n')
         f.close()

@@ -32,6 +32,9 @@ for i in "${!pred_lens[@]}"; do
 		--data_name $dataset \
 		--is_training 1 \
 		--use_amp \
+		--features S \
+		--target OT \
+		--c_out 1 \
 		--model_id wpmixer \
 		--model $model_name \
 		--seq_len ${seq_lens[$i]} \

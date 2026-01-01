@@ -274,22 +274,23 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.args = args
         self.task_name = args.task_name
-        self.wpmixerCore = WPMixerCore(input_length=self.args.seq_len,
-                                       pred_length=self.args.pred_len,
-                                       wavelet_name=wavelet,
-                                       level=level,
-                                       batch_size=self.args.batch_size,
-                                       channel=self.args.c_out,
-                                       d_model=self.args.d_model,
-                                       dropout=self.args.dropout,
-                                       embedding_dropout=self.args.dropout,
-                                       tfactor=tfactor,
-                                       dfactor=dfactor,
-                                       device=self.args.device,
-                                       patch_len=self.args.patch_len,
-                                       patch_stride=stride,
-                                       no_decomposition=no_decomposition,
-                                       use_amp=self.args.use_amp)
+        self.wpmixerCore = WPMixerCore(
+            input_length=self.args.seq_len,
+            pred_length=self.args.pred_len,
+            wavelet_name=wavelet,
+            level=level,
+            batch_size=self.args.batch_size,
+            channel=self.args.c_out,
+            d_model=self.args.d_model,
+            dropout=self.args.dropout,
+            embedding_dropout=self.args.dropout,
+            tfactor=tfactor,
+            dfactor=dfactor,
+            device=self.args.device,
+            patch_len=self.args.patch_len,
+            patch_stride=stride,
+            no_decomposition=no_decomposition,
+            use_amp=self.args.use_amp)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, batch_y_mark):
         # Normalization
