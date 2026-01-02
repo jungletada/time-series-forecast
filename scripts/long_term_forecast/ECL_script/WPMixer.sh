@@ -27,13 +27,14 @@ strides=(8 8 8 8)
 # Loop over datasets and prediction lengths
 for i in "${!pred_lens[@]}"; do
 	python -u run.py \
-		--is_training 1 \
-		--root_path ./data/electricity/ \
-		--data_path electricity.csv \
-		--model_id wpmixer \
-		--model $model_name \
 		--task_name long_term_forecast \
-		--data $dataset \
+		--is_training 1 \
+		--data_name Electricity \
+		--model_id ECL_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model WPMixer \
+		--features S \
+    	--target OT \
+    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \

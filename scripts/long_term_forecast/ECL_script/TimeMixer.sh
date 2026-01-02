@@ -15,7 +15,7 @@ for i in "${!pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Electricity \
-    --model_id ECL_$seq_len'_'${pred_lens[$i]} \
+    --model_id ECL_96_${pred_lens[$i]} \
     --model TimeMixer \
     --features S \
     --target OT \

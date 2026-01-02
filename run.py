@@ -222,8 +222,8 @@ if __name__ == '__main__':
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-            save_dir = os.path.join(args.data_type.replace('_dep', ''), save_path)
+            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_dir = os.path.join(args.data_name, save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
                 'task_name': args.task_name,
@@ -255,8 +255,8 @@ if __name__ == '__main__':
     else:
         exp_time = 0
         # setting record of experiments
-        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-        save_dir = os.path.join(args.results, args.data_type.replace('_dep', ''), save_path)
+        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_dir = os.path.join(args.data_name, save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {
             'task_name': args.task_name,
