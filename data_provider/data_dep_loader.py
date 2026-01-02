@@ -22,6 +22,7 @@ class Dataset_ETT_Decomposed(Dataset):
         # size [seq_len, label_len, pred_len]
         self.args = args
         self.mnn = mnn
+
         if size is None:
             self.seq_len = 24 * 4 * 4
             self.label_len = 24 * 4
@@ -63,10 +64,8 @@ class Dataset_ETT_Decomposed(Dataset):
         # 自动识别数据类型
         if 'ETTm' in self.data_path:
             self.borders = self.border_map['ETTm']
-            self.freq = 't'
         elif 'ETTh' in self.data_path:
             self.borders = self.border_map['ETTh']
-            self.freq = 'h'
         else:
             raise ValueError(f"Invalid data path: {self.data_path}")
             
@@ -128,16 +127,30 @@ class Dataset_ETT_Decomposed(Dataset):
         df_stamp = df_raw[['date']][start_idx:end_idx]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
         
-        if self.time_enc == 0:
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['date'], 1).values
-        elif self.time_enc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
-            data_stamp = data_stamp.transpose(1, 0)
+        if 'ETTh' in self.data_path:
+            if self.time_enc == 0:
+                df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
+                df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
+                df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
+                df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
+                data_stamp = df_stamp.drop(['date'], 1).values
+            elif self.time_enc == 1:
+                data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq='h')
+                data_stamp = data_stamp.transpose(1, 0)
 
+        elif 'ETTm' in self.data_path:
+            if self.time_enc == 0:
+                df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
+                df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
+                df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
+                df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
+                df_stamp['minute'] = df_stamp.date.apply(lambda row: row.minute, 1)
+                df_stamp['minute'] = df_stamp.minute.map(lambda x: x // 15)
+                data_stamp = df_stamp.drop(['date'], 1).values
+            elif self.time_enc == 1:
+                data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq='h')
+                data_stamp = data_stamp.transpose(1, 0)
+                
         # 4. 合并分量 (Merge Components)
         # data_npy is [T, C, K_IMFS]
         k = self.k
@@ -180,7 +193,7 @@ class Dataset_ETT_Decomposed(Dataset):
             
             # 获取 scaler 的参数，形状适配 [1, C, 1] 以便广播
             # mean: [C], scale: [C]
-            mean = self.scaler.mean_.reshape(1, C, 1)
+            mean_ = self.scaler.mean_.reshape(1, C, 1)
             scale = self.scaler.scale_.reshape(1, C, 1)
             
             # --- 关键 Scaling 逻辑 ---
@@ -191,7 +204,7 @@ class Dataset_ETT_Decomposed(Dataset):
             data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
             
             # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:3] = (data_processed[:, :, 2:3] - mean) / scale
+            data_processed[:, :, 2:3] = (data_processed[:, :, 2:3] - mean_) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]

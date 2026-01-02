@@ -27,7 +27,10 @@ class CompleteDecomposition:
             self.scaler = StandardScaler()
         else:
             self.scaler = None # 不归一化
-        print(f"  > Decomposition: {self.file_path}, max_imfs: {self.max_imfs}, seq_len: {self.seq_len}, scale: {self.scale}")
+        print(f"   Decomposition: {self.file_path}\n"
+              f"   max_imfs: {self.max_imfs}\n"
+              f"   seq_len: {self.seq_len}\n"
+              f"   scale: {self.scale}")
 
     def _get_borders(self, total_len):
         num_train = int(total_len * 0.7)
@@ -112,7 +115,9 @@ class CompleteDecomposition:
             data_values = self.scaler.transform(data_values)
             print("  > Data Scaled (Fit on Train set), warning: data will be scaled after decomposition.")
 
-        print(f"  > Borders: Train[0:{border['end'][0]}], Val[{border['start'][1]}:{border['end'][1]}], Test[{border['start'][2]}:{border['end'][2]}]")
+        print(f"  > Borders: Train[0:{border['end'][0]}], \n"
+              f"  > Val[{border['start'][1]}:{border['end'][1]}], \n"
+              f"  > Test[{border['start'][2]}:{border['end'][2]}]")
         
         # 并行处理
         # 这里的 data_values 已经是 numpy array

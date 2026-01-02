@@ -1,0 +1,3 @@
+{"task_name": "long_term_forecast", "model_id": "ETTm2_96_336", "model": "TCN", "data_type": "ETTm2_dep", "data_path": "ETTm2.csv", "seq_len": 96, "pred_len": 336, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTm2/long_term_forecast_ETTm2_96_336_TCN_ETTm2_dep_seq96_pred336_ft(S)_#0"}  
+mse:0.15683, mae:0.30480, rmse:0.39602, mape:0.80424, mspe:24.86065
+
