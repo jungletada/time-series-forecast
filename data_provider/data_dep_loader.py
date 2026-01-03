@@ -38,6 +38,7 @@ class Dataset_ETT_Decomposed(Dataset):
 
         self.features = features
         self.target = target
+        self.target_idx = None
         self.scale = scale
         self.time_enc = time_enc
         self.root_path = root_path
@@ -106,7 +107,8 @@ class Dataset_ETT_Decomposed(Dataset):
             data_cols = list(df_raw.columns[1:])
             target_idx = data_cols.index(self.target)
             target_indices = [target_idx]
-        
+            self.target_idx = target_idx
+
         # 从 NPY 中筛选特征
         # data_npy: [T, Total_Channels, K] -> [T, Selected_Channels, K]
         data_npy = data_npy[:, target_indices, :]
@@ -171,12 +173,12 @@ class Dataset_ETT_Decomposed(Dataset):
 
         if self.set_type == 2 and self.test_mnn:
             mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd.npy")
-            data_mnn = np.load(mnn_npy_path)
-            data_mnn = data_mnn.reshape(-1, 1, 3)
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
             length, num_channels, num_imfs = data_processed.shape
-            data_pad = np.zeros((length, num_channels-1, num_imfs))
-            data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            # data_pad = np.zeros((length, num_channels-1, num_imfs))
+            # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
 
         # 5. 标准化 (Scaling)
         if self.scale:
@@ -264,31 +266,29 @@ class Dataset_ETT_Decomposed(Dataset):
 class Dataset_Custom_Decomposed(Dataset):
     def __init__(
         self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
-        target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None, split_ratio=(0.7, 0.2)):
+        target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None, mnn='mlp'):
         # [seq_len, label_len, pred_len]
         use_mnn = getattr(args, 'use_mnn', 0)
         if use_mnn == 1:
             self.test_mnn = True
         else:
             self.test_mnn = False
+        self.mnn = mnn
         self.args = args
-        self.split_ratio = split_ratio
+        self.k = getattr(self.args, 'selected_k', 2) 
+        self.split_ratio = (0.7, 0.2)
         # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
+        self.seq_len = size[0]
+        self.label_len = size[1]
+        self.pred_len = size[2]
         # initialize
         assert flag in ['train', 'test', 'val']
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
-
+        
         self.features = features
         self.target = target
+        self.target_idx = None
         self.scale = scale
         self.time_enc = time_enc
         self.freq = freq
@@ -341,7 +341,7 @@ class Dataset_Custom_Decomposed(Dataset):
             data_cols = list(df_raw.columns[1:])
             target_idx = data_cols.index(self.target)
             target_indices = [target_idx]
-        
+            self.target_idx = target_idx
         # 从 NPY 中筛选特征
         # data_npy: [T, Total_Channels, K] -> [T, Selected_Channels, K]
         data_npy = data_npy[:, target_indices, :]
@@ -386,6 +386,16 @@ class Dataset_Custom_Decomposed(Dataset):
         
         # Stack -> [T, C, 3]
         data_processed = np.stack([comp1, comp2, comp3], axis=-1)
+        # load mnn data for test
+        if self.set_type == 2 and self.test_mnn:
+            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd.npy")
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
+            assert data_mnn.shape[0] == data_processed.shape[0]
+            length, num_channels, num_imfs = data_processed.shape
+            # data_pad = np.zeros((length, num_channels-1, num_imfs))
+            # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            assert self.target_idx is not None
+            data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
 
         # 5. 标准化 (Scaling)
         if self.scale:
@@ -428,3 +438,44 @@ class Dataset_Custom_Decomposed(Dataset):
             # 直接调用可能会报错，取决于 utils.augmentation 的实现。
             # 这里建议先忽略，或者需要对每一层分别做 augmentation
             pass 
+    
+    def __getitem__(self, index):
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+
+        # self.data_x: [3, T, C]
+        # 保持第一维 (Component) 不变，切片第二维 (Time)
+        seq_x = self.data_x[:, s_begin:s_end, :] 
+        seq_y = self.data_y[:, r_begin:r_end, :]
+        
+        seq_x_mark = self.data_stamp[s_begin:s_end]
+        seq_y_mark = self.data_stamp[r_begin:r_end]
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        # 时间维度在索引 1
+        return self.data_x.shape[1] - self.seq_len - self.pred_len + 1
+
+    def inverse_transform(self, data):
+        """
+        data: [Batch, 3, T, C] 或者 [Batch, T, C] (如果模型已经求和了)
+        """
+        # 如果输入是分开的 3 个分量，先求和
+        if data.ndim == 4 and data.shape[1] == 3:
+            data = data.sum(dim=1) # [Batch, T, C]
+            
+        # 调用 scaler 还原
+        # 注意: scaler 期望输入是 [Batch * T, C] 或者 numpy
+        # 这里简单封装，假设 data 是 Tensor 或 Numpy
+        if hasattr(data, 'cpu'): data = data.cpu().numpy()
+        
+        shape = data.shape
+        # Flatten time dims
+        if data.ndim == 3:
+            data = data.reshape(-1, shape[-1])
+            
+        inverse_data = self.scaler.inverse_transform(data)
+        return inverse_data.reshape(shape)

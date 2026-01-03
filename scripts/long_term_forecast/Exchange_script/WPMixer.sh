@@ -2,7 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0
 
 # Datasets and prediction lengths
-seq_lens=(1200 1200 1200 1200)
+seq_lens=(512 512 512 512)
 pred_lens=(96 192 336 720)
 learning_rates=(0.0010385 0.000567053 0.001026715 0.001496217)
 batches=(16 16 16 16)
@@ -23,11 +23,11 @@ strides=(8 8 8 8)
 # Loop over datasets and prediction lengths
 for i in "${!pred_lens[@]}"; do
 	python -u run.py \
+        --task_name long_term_forecast \
 		--is_training 1 \
-		--data_name Traffic \
-		--model_id wpmixer_${seq_lens[$i]}_${pred_lens[$i]} \
+		--data_name Exchange \
+		--model_id wpmixer_exchange_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
-		--task_name long_term_forecast \
 		--features S \
 		--target OT \
 		--c_out 1 \

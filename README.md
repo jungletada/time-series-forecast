@@ -15,7 +15,7 @@ You can obtain the well-preprocessed datasets from [[Google Drive]](https://driv
 
 2. Create a new Conda environment.
    ```bash
-   conda create -n tslib python=3.12
+   conda create -n tslib python=3.11
    conda activate tslib
    ```
 

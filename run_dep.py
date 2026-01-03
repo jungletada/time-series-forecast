@@ -1,6 +1,5 @@
 import os
 import sys
-import yaml
 import json
 import logging
 import argparse
@@ -26,7 +25,9 @@ def get_args():
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
     parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name', 
-                        choices=['ETTh1_dep', 'ETTh2_dep', 'ETTm1_dep', 'ETTm2_dep'])
+                        choices=['ETTh1_dep', 'ETTh2_dep', 'ETTm1_dep', 'ETTm2_dep', 
+                                 'Exchange_dep', 'Illness_dep', 'Weather_dep', 
+                                 'Traffic_dep', 'Electricity_dep', 'M4_dep'])
     parser.add_argument('--features', type=str, default='S',
                         help='forecasting task, options:[M, S, MS]; " \
                         "M: multivariate predict multivariate, S: univariate predict univariate, MS: multivariate predict univariate',
@@ -211,12 +212,11 @@ if __name__ == '__main__':
     else:
         Exp = Exp_Dep_Long_Term_Forecast
 
-
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-            save_dir = os.path.join(args.data_type.replace('_dep', ''), save_path)
+            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
                 'task_name': args.task_name,
@@ -247,8 +247,8 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_type}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
-        save_dir = os.path.join(args.data_type.replace('_dep', ''), save_path)
+        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {
             'task_name': args.task_name,

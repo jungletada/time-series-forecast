@@ -23,37 +23,37 @@ ETTm2_dep:
   k: 3
 
 Exchange_dep:
-  data_type: custom
+  data_type: Exchange_dep
   root_path: dataset/exchange_rate/
   data_path: exchange_rate.csv
   k: 3
 
 Illness_dep:
-  data_type: custom
+  data_type: Illness_dep
   root_path: dataset/illness/
   data_path: national_illness.csv
   k: 1
 
 Weather_dep:
-  data_type: custom
+  data_type: Weather_dep
   root_path: dataset/weather/
   data_path: weather.csv
   k: 3
 
 Traffic_dep:
-  data_type: custom
+  data_type: Traffic_dep
   root_path: dataset/traffic/
   data_path: traffic.csv
   k: 3
 
 Electricity_dep:
-  data_type: custom
+  data_type: Electricity_dep
   root_path: dataset/electricity/
   data_path: electricity.csv
   k: 3
 
 M4_dep:
-  data_type: custom
+  data_type: M4_dep
   root_path: dataset/m4/
   seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']
   k: 3

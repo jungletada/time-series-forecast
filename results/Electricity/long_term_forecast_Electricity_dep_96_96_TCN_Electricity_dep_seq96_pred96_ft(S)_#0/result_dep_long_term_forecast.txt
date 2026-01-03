@@ -1,0 +1,12 @@
+{"task_name": "long_term_forecast", "model_id": "Electricity_dep_96_96", "model": "TCN", "data_type": "Electricity_dep", "data_path": "electricity.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "Electricity/long_term_forecast_Electricity_dep_96_96_TCN_Electricity_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.31141, mae:0.41835, rmse:0.55804, mape:2.13057, mspe:377.41617
+
+{"task_name": "long_term_forecast", "model_id": "Electricity_dep_96_96", "model": "TCN", "data_type": "Electricity_dep", "data_path": "electricity.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "Electricity/long_term_forecast_Electricity_dep_96_96_TCN_Electricity_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.32526, mae:0.42927, rmse:0.57032, mape:2.18480, mspe:355.77029
+
+{"task_name": "long_term_forecast", "model_id": "Electricity_dep_96_96", "model": "TCN", "data_type": "Electricity_dep", "data_path": "electricity.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "Electricity/long_term_forecast_Electricity_dep_96_96_TCN_Electricity_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.31535, mae:0.41968, rmse:0.56156, mape:2.24946, mspe:555.03925
+
+{"task_name": "long_term_forecast", "model_id": "Electricity_dep_96_96", "model": "TCN", "data_type": "Electricity_dep", "data_path": "electricity.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "Electricity/long_term_forecast_Electricity_dep_96_96_TCN_Electricity_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.32638, mae:0.43070, rmse:0.57129, mape:2.19359, mspe:345.44882
+
