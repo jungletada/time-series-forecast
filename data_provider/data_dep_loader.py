@@ -9,6 +9,28 @@ from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
 
+def merge_components(data_npy, k):
+    """合并分量 (Merge Components)"""
+    T, C, N_IMFS = data_npy.shape
+    # 确保 k 不越界
+    k = min(k, N_IMFS - 1)
+    if k > 0 and k < N_IMFS - 1: 
+        comp1 = np.sum(data_npy[:, :, :k], axis=-1)
+        comp2 = data_npy[:, :, k]
+        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1)
+    elif k == 0: # The first component
+        comp1 = data_npy[:, :, 0]
+        comp2 = data_npy[:, :, 1]
+        comp3 = np.sum(data_npy[:, :, 2:], axis=-1)
+    elif k == N_IMFS - 1: # The last component
+        comp1 = np.sum(data_npy[:, :, :N_IMFS - 2], axis=-1)
+        comp2 = data_npy[:, :, N_IMFS - 2]
+        comp3 = data_npy[:, :, N_IMFS - 1]
+    # Stack -> [T, C, 3]
+    data_processed = np.stack([comp1, comp2, comp3], axis=-1)
+    
+    return data_processed
+
 class Dataset_ETT_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
@@ -157,19 +179,19 @@ class Dataset_ETT_Decomposed(Dataset):
         # data_npy is [T, C, K_IMFS]
         k = self.k
         T, C, N_IMFS = data_npy.shape
+        data_processed = merge_components(data_npy, self.k)
+        # # 确保 k 不越界
+        # k = min(k, N_IMFS - 1)
         
-        # 确保 k 不越界
-        k = min(k, N_IMFS - 1)
+        # # Comp 1: High Freq (0 to k-1)
+        # comp1 = np.sum(data_npy[:, :, :k], axis=-1) if k > 0 else np.zeros((T, C))
+        # # Comp 2: Mid Freq (k)
+        # comp2 = data_npy[:, :, k]
+        # # Comp 3: Low Freq (k+1 to end)
+        # comp3 = np.sum(data_npy[:, :, k+1:], axis=-1) if k+1 < N_IMFS else np.zeros((T, C))
         
-        # Comp 1: High Freq (0 to k-1)
-        comp1 = np.sum(data_npy[:, :, :k], axis=-1) if k > 0 else np.zeros((T, C))
-        # Comp 2: Mid Freq (k)
-        comp2 = data_npy[:, :, k]
-        # Comp 3: Low Freq (k+1 to end)
-        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1) if k+1 < N_IMFS else np.zeros((T, C))
-        
-        # Stack -> [T, C, 3]
-        data_processed = np.stack([comp1, comp2, comp3], axis=-1)
+        # # Stack -> [T, C, 3]
+        # data_processed = np.stack([comp1, comp2, comp3], axis=-1)
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"
@@ -372,22 +394,9 @@ class Dataset_Custom_Decomposed(Dataset):
             data_stamp = data_stamp.transpose(1, 0)
 
         # 4. 合并分量 (Merge Components)
-        # data_npy is [T, C, K_IMFS]
-        k = self.k
         T, C, N_IMFS = data_npy.shape
-        
-        # 确保 k 不越界
-        k = min(k, N_IMFS - 1)
-        
-        # Comp 1: High Freq (0 to k-1)
-        comp1 = np.sum(data_npy[:, :, :k], axis=-1) if k > 0 else np.zeros((T, C))
-        # Comp 2: Mid Freq (k)
-        comp2 = data_npy[:, :, k]
-        # Comp 3: Low Freq (k+1 to end)
-        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1) if k+1 < N_IMFS else np.zeros((T, C))
-        
-        # Stack -> [T, C, 3]
-        data_processed = np.stack([comp1, comp2, comp3], axis=-1)
+        data_processed = merge_components(data_npy, self.k)
+  
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"

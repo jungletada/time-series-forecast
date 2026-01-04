@@ -15,7 +15,6 @@ from utils.losses import mape_loss, mase_loss, smape_loss
 from utils.m4_summary import M4Summary
 warnings.filterwarnings('ignore')
 
-
 class Exp_Short_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
         super(Exp_Short_Term_Forecast, self).__init__(args)

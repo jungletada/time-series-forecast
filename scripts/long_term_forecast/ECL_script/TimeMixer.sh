@@ -9,7 +9,10 @@ batch_size=32
 train_epochs=20
 patience=10
 pred_lens=(96 192 336 720)
-
+# For MS, M:
+#   --enc_in 321 \ 
+#   --dec_in 321 \  
+#   --c_out 321 \   
 for i in "${!pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
