@@ -6,7 +6,8 @@ model_name=WPMixer
 
 # Datasets and prediction lengths
 dataset=electricity
-seq_lens=(512 512 512 512)
+# seq_lens=(512 512 512 512)
+seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.00328086 0.000493286 0.002505375 0.001977516)
 batches=(32 32 32 32)

@@ -2,7 +2,8 @@
 export CUDA_VISIBLE_DEVICES=0
 
 # Datasets and prediction lengths
-seq_lens=(1200 1200 1200 1200)
+# seq_lens=(1200 1200 1200 1200)
+seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.0010385 0.000567053 0.001026715 0.001496217)
 batches=(16 16 16 16)

@@ -2,7 +2,8 @@
 # Set the GPU to use
 export CUDA_VISIBLE_DEVICES=0
 
-seq_lens=(512 512 512 512)
+# seq_lens=(512 512 512 512)
+seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.00076587 0.000275775 0.000234608 0.001039536)
 batches=(256 256 256 256)

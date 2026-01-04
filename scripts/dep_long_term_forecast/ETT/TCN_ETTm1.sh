@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=0
 dataset=ETTm1_dep
-d_model=16
+d_model=32
 e_layers=4
 pred_lens=(96 192 336 720)
 
@@ -24,10 +24,10 @@ for i in "${!pred_lens[@]}"; do
         --e_layers $e_layers \
         --des 'Exp' \
         --itr 1 \
-        --learning_rate 0.002 \
-        --train_epochs 20 \
+        --learning_rate 0.005 \
+        --train_epochs 10 \
         --patience 10 \
-        --batch_size 64
+        --batch_size 128
 done
 
 # Loop over datasets and prediction lengths

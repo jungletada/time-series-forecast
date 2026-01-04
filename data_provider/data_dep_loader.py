@@ -170,15 +170,17 @@ class Dataset_ETT_Decomposed(Dataset):
         
         # Stack -> [T, C, 3]
         data_processed = np.stack([comp1, comp2, comp3], axis=-1)
-
+        # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd.npy")
+            suffix = "_smoothed"
+            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+            print(f"Loading MNN data from {mnn_npy_path}")
             data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
             length, num_channels, num_imfs = data_processed.shape
-            # data_pad = np.zeros((length, num_channels-1, num_imfs))
-            # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
-            data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
+            data_pad = np.zeros((length, num_channels-1, num_imfs))
+            data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            # data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
 
         # 5. 标准化 (Scaling)
         if self.scale:
@@ -313,7 +315,7 @@ class Dataset_Custom_Decomposed(Dataset):
             data_npy = np.load(npy_path)
             print(f"Loaded decomposed data from {npy_path}")
         else:
-            raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}")
+            raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}.")
 
         # data_npy Shape: [T, C, K_IMFS]
         # 注意：这里的 data_npy 已经是切分好的片段，不要再做时间切片！
@@ -388,14 +390,15 @@ class Dataset_Custom_Decomposed(Dataset):
         data_processed = np.stack([comp1, comp2, comp3], axis=-1)
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd.npy")
+            suffix = "_smoothed"
+            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+            print(f"Loading MNN data from {mnn_npy_path}")
             data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
             length, num_channels, num_imfs = data_processed.shape
-            # data_pad = np.zeros((length, num_channels-1, num_imfs))
-            # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
-            assert self.target_idx is not None
-            data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
+            data_pad = np.zeros((length, num_channels-1, num_imfs))
+            data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            # data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
 
         # 5. 标准化 (Scaling)
         if self.scale:

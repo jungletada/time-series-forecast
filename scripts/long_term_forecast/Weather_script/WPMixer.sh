@@ -1,7 +1,8 @@
 
 export CUDA_VISIBLE_DEVICES=0
 
-seq_lens=(512 512 512 512)
+# seq_lens=(512 512 512 512)
+seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.000913333 0.001379042 0.000607991 0.001470479)
 batches=(32 64 32 128)

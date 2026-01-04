@@ -117,8 +117,6 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
         time_now = time.time()
         train_steps = len(train_loader)
-        
-        # 早停只需监控整体 Loss
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
 
         model_optimizers = self._select_optimizer() # List of K optimizers
@@ -182,14 +180,20 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     iter_count = 0
                     time_now = time.time()
 
-            self.logger.info("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
 
-            self.logger.info("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
-                epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            
+            # self.logger.info("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
+            #     epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            # --- Added Train Time per Epoch ---
+            self.logger.info("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            # --- Added Peak GPU Memory Logic ---
+            if torch.cuda.is_available():
+                max_memory = torch.cuda.max_memory_allocated() / 1024 / 1024
+                self.logger.info("Epoch: {} Peak GPU memory: {:.2f} MB".format(epoch + 1, max_memory))
+                torch.cuda.reset_peak_memory_stats()
+            # -----------------------------------
             # 保存逻辑：我们保存整个 ModuleList
             early_stopping(vali_loss, self.model, ckpt_path)
             if early_stopping.early_stop:
@@ -218,7 +222,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
-
+        # --- Added Initialization ---
+        inference_time = 0
+        # ----------------------------
             
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
@@ -226,7 +232,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 # 存储当前 Batch 的 3 个分量预测结果
                 batch_preds_list = []
                 batch_trues_list = []
-                
+                # --- Added Timing Start ---
+                start_time = time.time()
+                # --------------------------
                 for comp_idx in range(self.num_components):
                     # 获取单分量预测
                     outputs, true_y = self._process_one_batch(
@@ -241,7 +249,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 # [B, Pred_Len, C]
                 pred_sum = np.sum(batch_preds_list, axis=0) 
                 true_sum = np.sum(batch_trues_list, axis=0)
-                
+                # --- Added Timing End ---
+                inference_time += time.time() - start_time
+                # ------------------------
                 # --- 反归一化 (Inverse Transform) ---
                 if test_data.scale and self.args.inverse:
                     shape = pred_sum.shape
@@ -278,6 +288,11 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         self.logger.info(f'Final Test Shape: {preds.shape}, {trues.shape}')
+
+        # --- Added Latency Printing ---
+        avg_latency = (inference_time / (i + 1)) * 1000
+        self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
+        # ------------------------------
 
         # Metrics Calculation
         mae, mse, rmse, mape, mspe = metric(preds, trues)

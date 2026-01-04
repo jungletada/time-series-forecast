@@ -13,3 +13,18 @@ mse:0.04698, mae:0.15633, rmse:0.21674, mape:0.12323, mspe:0.02590
 {"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
 mse:0.04738, mae:0.16274, rmse:0.21766, mape:0.13123, mspe:0.03194
 
+{"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.04069, mae:0.14958, rmse:0.20171, mape:0.11831, mspe:0.02554
+
+{"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.03919, mae:0.14608, rmse:0.19796, mape:0.11499, mspe:0.02400
+
+{"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.03823, mae:0.14394, rmse:0.19553, mape:0.11275, mspe:0.02286
+
+{"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.03914, mae:0.14594, rmse:0.19785, mape:0.11484, mspe:0.02391
+
+{"task_name": "long_term_forecast", "model_id": "ETTh1_96_96", "model": "TCN", "data_type": "ETTh1_dep", "data_path": "ETTh1.csv", "seq_len": 96, "pred_len": 96, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTh1/long_term_forecast_ETTh1_96_96_TCN_ETTh1_dep_seq96_pred96_ft(S)_#0"}  
+mse:0.03801, mae:0.14335, rmse:0.19497, mape:0.11233, mspe:0.02273
+

@@ -51,9 +51,5 @@ for i in "${!pred_lens[@]}"; do
         --d_model $d_model \
         --e_layers $e_layers \
         --des 'Exp' \
-        --itr 1 \
-        --learning_rate 0.002 \
-        --train_epochs 10 \
-        --patience 10 \
-        --batch_size 128
+        --itr 1
 done
