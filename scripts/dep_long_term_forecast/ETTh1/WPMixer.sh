@@ -2,12 +2,7 @@
 # Set the GPU to use
 export CUDA_VISIBLE_DEVICES=0
 
-# Model name
-model_name=WPMixer
-
-# Datasets and prediction lengths
-dataset=ETTh1
-seq_lens=(512 512 512 512)
+seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.000242438 0.000201437 0.000132929 0.000239762)
 batches=(256 256 256 256)
@@ -27,13 +22,16 @@ strides=(8 8 8 8)
 
 # Loop over datasets and prediction lengths
 for i in "${!pred_lens[@]}"; do
-	python -u run.py \
+	python -u run_dep.py \
 		--task_name long_term_forecast \
-		--data_name $dataset \
+		--data_name ETTh1_dep \
 		--is_training 1 \
 		--use_amp \
-		--model_id wpmixer \
-		--model $model_name \
+		--model_id dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model WPMixer \
+		--features S \
+    	--target OT \
+    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \
@@ -42,6 +40,29 @@ for i in "${!pred_lens[@]}"; do
 		--lradj ${lradjs[$i]} \
 		--patience ${patiences[$i]} \
 		--train_epochs ${epochs[$i]} \
+		--d_model ${d_models[$i]} \
+		--patch_len ${patch_lens[$i]} \
+		--dropout ${dropouts[$i]}
+done
+
+
+for i in "${!pred_lens[@]}"; do
+	python -u run_dep.py \
+		--task_name long_term_forecast \
+		--data_name ETTh1_dep \
+		--is_training 0 \
+		--use_mnn 1 \
+		--use_amp \
+		--model_id dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model WPMixer \
+		--features S \
+    	--target OT \
+    	--c_out 1 \
+		--seq_len ${seq_lens[$i]} \
+		--pred_len ${pred_lens[$i]} \
+		--label_len 0 \
+		--batch_size ${batches[$i]} \
+		--lradj ${lradjs[$i]} \
 		--d_model ${d_models[$i]} \
 		--patch_len ${patch_lens[$i]} \
 		--dropout ${dropouts[$i]}

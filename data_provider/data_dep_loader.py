@@ -382,7 +382,7 @@ class Dataset_Custom_Decomposed(Dataset):
 
         df_stamp = df_raw[['date']][start_idx:end_idx]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        
+
         if self.time_enc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)

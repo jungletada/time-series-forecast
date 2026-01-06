@@ -86,14 +86,30 @@ class Model(nn.Module):
         self.mask = True
         self.dropout = configs.dropout
 
-        self.stride1 = 8
-        self.patch_len1 = 8
-        self.stride2 = 8
-        self.patch_len2 = 16
-        self.stride3 = 7
-        self.patch_len3 = 24
-        self.stride4 = 6
-        self.patch_len4 = 32
+        # -----------------------------------------------------------
+        # 1. 动态调整 Stride 以适配 seq_len=36
+        # -----------------------------------------------------------
+        if self.seq_len == 36:
+            # 针对 36 的特殊配置，确保所有分支 patch_num 均为 4
+            self.stride1 = 8
+            self.patch_len1 = 8
+            self.stride2 = 8
+            self.patch_len2 = 16
+            self.stride3 = 6  # 原为7，改为6 -> (36-24)/6 + ... = 对齐
+            self.patch_len3 = 24
+            self.stride4 = 2  # 原为6，改为2 -> (36-32)/2 + ... = 对齐
+            self.patch_len4 = 32
+        else:
+            # 原始默认配置 (适配 96 等)
+            self.stride1 = 8
+            self.patch_len1 = 8
+            self.stride2 = 8
+            self.patch_len2 = 16
+            self.stride3 = 7
+            self.patch_len3 = 24
+            self.stride4 = 6
+            self.patch_len4 = 32
+
         self.patch_num1 = int((self.seq_len - self.patch_len2) // self.stride2) + 2
         self.padding_patch_layer1 = nn.ReplicationPad1d((0, self.stride1))
         self.padding_patch_layer2 = nn.ReplicationPad1d((0, self.stride2))
@@ -188,30 +204,60 @@ class Model(nn.Module):
             stride=self.stride4,
         )
 
-        self.out_linear_1 = torch.nn.Linear(self.d_model, self.pred_len // 8)
+        # self.out_linear_1 = torch.nn.Linear(self.d_model, self.pred_len // 8)
+        # self.out_linear_2 = torch.nn.Linear(
+        #     self.d_model + self.pred_len // 8, self.pred_len // 8
+        # )
+        # self.out_linear_3 = torch.nn.Linear(
+        #     self.d_model + 2 * self.pred_len // 8, self.pred_len // 8
+        # )
+        # self.out_linear_4 = torch.nn.Linear(
+        #     self.d_model + 3 * self.pred_len // 8, self.pred_len // 8
+        # )
+        # self.out_linear_5 = torch.nn.Linear(
+        #     self.d_model + self.pred_len // 2, self.pred_len // 8
+        # )
+        # self.out_linear_6 = torch.nn.Linear(
+        #     self.d_model + 5 * self.pred_len // 8, self.pred_len // 8
+        # )
+        # self.out_linear_7 = torch.nn.Linear(
+        #     self.d_model + 6 * self.pred_len // 8, self.pred_len // 8
+        # )
+        # self.out_linear_8 = torch.nn.Linear(
+        #     self.d_model + 7 * self.pred_len // 8,
+        #     self.pred_len - 7 * (self.pred_len // 8),
+        # )
+        # -----------------------------------------------------------
+        # 2. 修复 Linear 层维度计算 Bug (适配 pred_len=60/36 等非8整除数)
+        # -----------------------------------------------------------
+        # 预先计算每段长度，避免 "2 * len // 8" 变成 "(2 * len) // 8" 的优先级错误
+        seg_len = self.pred_len // 8 
+
+        self.out_linear_1 = torch.nn.Linear(self.d_model, seg_len)
+        
         self.out_linear_2 = torch.nn.Linear(
-            self.d_model + self.pred_len // 8, self.pred_len // 8
+            self.d_model + seg_len, seg_len
         )
         self.out_linear_3 = torch.nn.Linear(
-            self.d_model + 2 * self.pred_len // 8, self.pred_len // 8
+            self.d_model + 2 * seg_len, seg_len
         )
         self.out_linear_4 = torch.nn.Linear(
-            self.d_model + 3 * self.pred_len // 8, self.pred_len // 8
+            self.d_model + 3 * seg_len, seg_len
         )
         self.out_linear_5 = torch.nn.Linear(
-            self.d_model + self.pred_len // 2, self.pred_len // 8
+            self.d_model + 4 * seg_len, seg_len  # 注意：源码这里曾写 self.pred_len // 2，本质就是 4 * (//8)
         )
         self.out_linear_6 = torch.nn.Linear(
-            self.d_model + 5 * self.pred_len // 8, self.pred_len // 8
+            self.d_model + 5 * seg_len, seg_len
         )
         self.out_linear_7 = torch.nn.Linear(
-            self.d_model + 6 * self.pred_len // 8, self.pred_len // 8
+            self.d_model + 6 * seg_len, seg_len
         )
+        # 最后一个 Linear 负责处理余数部分
         self.out_linear_8 = torch.nn.Linear(
-            self.d_model + 7 * self.pred_len // 8,
-            self.pred_len - 7 * (self.pred_len // 8),
+            self.d_model + 7 * seg_len,
+            self.pred_len - 7 * seg_len,
         )
-
         self.remap = torch.nn.Linear(self.d_model, self.seq_len)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
