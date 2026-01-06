@@ -10,7 +10,7 @@ python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --data_name Traffic \
-  --model_id Traffic_96_${pred_lens[$i]} \
+  --model_id traffic_96_${pred_lens[$i]} \
   --model MultiPatchFormer \
   --features S \
   --target OT \

@@ -11,7 +11,7 @@ for i in "${!pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Traffic \
-    --model_id Traffic_96_${pred_lens[$i]} \
+    --model_id traffic_96_${pred_lens[$i]} \
     --model PAttn \
     --features S \
     --target OT \

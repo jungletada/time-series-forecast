@@ -19,6 +19,7 @@ def get_args():
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
     parser.add_argument('--use_mnn', type=int, default=1, help='use mnn for inference.')
+    parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')

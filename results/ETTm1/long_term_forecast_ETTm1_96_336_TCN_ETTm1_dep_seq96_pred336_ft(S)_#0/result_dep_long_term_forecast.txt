@@ -40,3 +40,9 @@ mse:0.08550, mae:0.22315, rmse:0.29241, mape:0.18681, mspe:0.07516
 {"task_name": "long_term_forecast", "model_id": "ETTm1_96_336", "model": "TCN", "data_type": "ETTm1_dep", "data_path": "ETTm1.csv", "seq_len": 96, "pred_len": 336, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTm1/long_term_forecast_ETTm1_96_336_TCN_ETTm1_dep_seq96_pred336_ft(S)_#0"}  
 mse:0.05730, mae:0.18182, rmse:0.23938, mape:0.14676, mspe:0.04157
 
+{"task_name": "long_term_forecast", "model_id": "ETTm1_96_336", "model": "TCN", "data_type": "ETTm1_dep", "data_path": "ETTm1.csv", "seq_len": 96, "pred_len": 336, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTm1/long_term_forecast_ETTm1_96_336_TCN_ETTm1_dep_seq96_pred336_ft(S)_#0"}  
+mse:0.05639, mae:0.18009, rmse:0.23746, mape:0.14532, mspe:0.04057
+
+{"task_name": "long_term_forecast", "model_id": "ETTm1_96_336", "model": "TCN", "data_type": "ETTm1_dep", "data_path": "ETTm1.csv", "seq_len": 96, "pred_len": 336, "features": "S", "target": "OT", "exp_time": 0, "save_dir": "ETTm1/long_term_forecast_ETTm1_96_336_TCN_ETTm1_dep_seq96_pred336_ft(S)_#0"}  
+mse:0.05641, mae:0.18017, rmse:0.23751, mape:0.14534, mspe:0.04046
+

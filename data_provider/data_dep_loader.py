@@ -35,15 +35,16 @@ class Dataset_ETT_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, time_enc=0, freq='h', 
-                 seasonal_patterns=None, mnn='mlp'):
+                 seasonal_patterns=None,):
+        # size [seq_len, label_len, pred_len]
+        self.args = args
+        self.mnn = args.mnn
         use_mnn = getattr(args, 'use_mnn', 0)
+
         if use_mnn == 1:
             self.test_mnn = True
         else:
             self.test_mnn = False
-        # size [seq_len, label_len, pred_len]
-        self.args = args
-        self.mnn = mnn
 
         if size is None:
             self.seq_len = 24 * 4 * 4
@@ -290,16 +291,18 @@ class Dataset_ETT_Decomposed(Dataset):
 class Dataset_Custom_Decomposed(Dataset):
     def __init__(
         self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
-        target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None, mnn='mlp'):
+        target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None,):
         # [seq_len, label_len, pred_len]
+        
+        self.args = args
+        self.mnn = args.mnn
         use_mnn = getattr(args, 'use_mnn', 0)
         if use_mnn == 1:
             self.test_mnn = True
         else:
             self.test_mnn = False
-        self.mnn = mnn
-        self.args = args
         self.k = getattr(self.args, 'selected_k', 2) 
+        
         self.split_ratio = (0.7, 0.2)
         # info
         self.seq_len = size[0]

@@ -3,6 +3,19 @@ d_model=32
 e_layers=4
 pred_lens=(96 192 336 720)
 
+mnn="mlp"
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    --mnn)
+      mnn="${2:?Missing value for --mnn}"
+      ;;
+    *)
+      echo "Usage: $0 [--mnn NAME]" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 for i in "${!pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \

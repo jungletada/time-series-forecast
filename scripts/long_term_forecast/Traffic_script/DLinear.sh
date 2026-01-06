@@ -1,15 +1,15 @@
 export CUDA_VISIBLE_DEVICES=0
+pred_lens=(96 192 336 720)
 # For MS, M:
 #   --enc_in 862 \
 #   --dec_in 862 \
 #   --c_out 862 \
-pred_lens=(96 192 336 720)
 for i in "${!pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Traffic \
-    --model_id Traffic_96_${pred_lens[$i]} \
+    --model_id traffic_96_${pred_lens[$i]} \
     --model DLinear \
     --features S \
     --target OT \

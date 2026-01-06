@@ -6,7 +6,19 @@ d_model=16
 e_layers=4
 pred_lens=(96 192 336 720)
 
-# # Loop over datasets and prediction lengths
+mnn="mlp"
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    --mnn)
+      mnn="${2:?Missing value for --mnn}"
+      ;;
+    *)
+      echo "Usage: $0 [--mnn NAME]" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 # for i in "${!pred_lens[@]}"; do
 #     python -u run_dep.py \
 #         --task_name long_term_forecast \
@@ -38,6 +50,7 @@ for i in "${!pred_lens[@]}"; do
         --task_name long_term_forecast \
         --is_training 0 \
         --use_mnn 1 \
+        --mnn $mnn \
         --data_name $dataset \
         --model_id ETTh2_$seq_len'_'${pred_lens[$i]} \
         --model $model_name \
