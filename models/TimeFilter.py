@@ -7,7 +7,6 @@ from layers.Embed import PositionalEmbedding
 from layers.StandardNorm import Normalize
 from layers.TimeFilter_layers import TimeFilter_Backbone
 
-
 class PatchEmbed(nn.Module):
     def __init__(self, dim, patch_len, stride=None, pos=True):
         super().__init__()
@@ -27,7 +26,6 @@ class PatchEmbed(nn.Module):
         if self.pos:
             x += self.pe(x)
         return x
-
 
 class Model(nn.Module):
     def __init__(self, configs):

@@ -33,6 +33,8 @@ def load_data_config(args):
     args.data_type = config['data_type']
     args.root_path = config['root_path']
     args.data_path = config.get('data_path', None)
+    if config.get('Target', None) is not None:
+        args.target = config['Target']
     # args.seasonal_patterns = config.get('seasonal_patterns', None)
     return args
 

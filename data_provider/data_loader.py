@@ -369,21 +369,25 @@ class Dataset_PEMS(Dataset):
         train_ratio = 0.6
         valid_ratio = 0.2
         len_data = len(data)
-        
-        train_slice = slice(0, int(train_ratio * len_data))
-        valid_slice = slice(int(train_ratio * len_data), int((train_ratio + valid_ratio) * len_data))
-        test_slice = slice(int((train_ratio + valid_ratio) * len_data), len_data)
+        len_train = int(train_ratio * len(data))
+        val_end = int((train_ratio + valid_ratio) * len_data)
+
+        train_slice = slice(0, len_train)
+        valid_slice = slice(len_train, val_end)
+        test_slice = slice(val_end, len_data)
+
+        print(f">>>>>> Train_slice: {train_slice}")
+        print(f">>>>>> Val_slice: {valid_slice}")
+        print(f">>>>>> Test_slice: {test_slice}")
 
         if self.features == 'S':
             data = data[:, [self.target]].reshape(-1, 1)
             print(f"data: {data.shape}")
-        len_train = int(train_ratio * len(data))
-        len_valid = int(valid_ratio * len(data))
 
-        train_data = data[:len_train]
-        valid_data = data[len_train:len_train + len_valid]
-        test_data = data[len_train + len_valid:]
-
+        train_data = data[train_slice]
+        valid_data = data[valid_slice]
+        test_data = data[test_slice]
+        
         total_data = [train_data, valid_data, test_data]
         current_data = total_data[self.set_type]
 

@@ -130,6 +130,8 @@ class Model(nn.Module):
 
         # 2. Embedding
         # Output: [Batch, Seq_Len, d_model]
+        if x_mark_enc is not None and torch.all(x_mark_enc == 0):
+            x_mark_enc = None
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
 
         # 3. TCN Encoder
