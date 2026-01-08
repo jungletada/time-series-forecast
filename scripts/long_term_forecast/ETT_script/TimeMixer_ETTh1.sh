@@ -24,10 +24,10 @@ for i in "${!pred_lens[@]}"; do
       --label_len 0 \
       --pred_len ${pred_lens[$i]} \
       --e_layers $e_layers \
-      --features MS \
+      --features S \
       --target OT \
-      --enc_in 7 \
-      --c_out 7 \
+      --enc_in 1 \
+      --c_out 1 \
       --des 'Exp' \
       --itr 1 \
       --d_model $d_model \

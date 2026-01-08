@@ -152,27 +152,27 @@ if __name__ == "__main__":
     K_IMFS = 10
     data_root = 'dataset'
     
-    # DATA_LIST = [
-    # (f'{data_root}/ETT-small', 'ETTh', 'ETTh1.csv'),
-    # (f'{data_root}/ETT-small', 'ETTh', 'ETTh2.csv'),
-    # (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
-    # (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
-    # (f'{data_root}/electricity', 'custom', 'electricity.csv'),
-    # (f'{data_root}/weather', 'custom', 'weather.csv'),
-    # (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
-    # (f'{data_root}/traffic', 'custom', 'traffic.csv'),
-    # ]
-    # seq_lens = [96, 192, 336, 720]
-    # # shape [time_length, num_variables, num_imfs]
-    # for data_path, data_type, data_file in DATA_LIST:
-    #     for seq_len in seq_lens:
-    #         decomposer = CompleteDecomposition(
-    #             data_type=data_type,
-    #             root_path=data_path,
-    #             data_file=data_file,
-    #             max_imfs=K_IMFS,
-    #             seq_len=seq_len)
-    #         decomposer.run()
+    DATA_LIST = [
+    (f'{data_root}/ETT-small', 'ETTh', 'ETTh1.csv'),
+    (f'{data_root}/ETT-small', 'ETTh', 'ETTh2.csv'),
+    (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
+    (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
+    (f'{data_root}/electricity', 'custom', 'electricity.csv'),
+    (f'{data_root}/weather', 'custom', 'weather.csv'),
+    (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
+    (f'{data_root}/traffic', 'custom', 'traffic.csv'),
+    ]
+    seq_lens = [96]
+    # shape [time_length, num_variables, num_imfs]
+    for data_path, data_type, data_file in DATA_LIST:
+        for seq_len in seq_lens:
+            decomposer = CompleteDecomposition(
+                data_type=data_type,
+                root_path=data_path,
+                data_file=data_file,
+                max_imfs=K_IMFS,
+                seq_len=seq_len)
+            decomposer.run()
     
     ILL_DATA_LIST = [
         (f'{data_root}/illness', 'custom', 'national_illness.csv'),

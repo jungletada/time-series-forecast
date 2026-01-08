@@ -4,14 +4,14 @@ export CUDA_VISIBLE_DEVICES=0
 
 seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
-learning_rates=(0.000242438 0.000201437 0.000132929 0.000239762)
-batches=(32 32 32 32)
-epochs=(30 30 30 30)
-lradjs=(type3 type3 type3 type3)
-patiences=(12 12 12 12)
-d_models=(256 256 256 128)
-dropouts=(0.4 0.05 0.0 0.2)
+learning_rates=(0.000913333 0.001379042 0.000607991 0.001470479)
+batches=(32 64 32 128)
+epochs=(60 60 60 60)
+dropouts=(0.4 0.4 0.4 0.4)
 patch_lens=(16 16 16 16)
+lradjs=(type3 type3 type3 type3)
+d_models=(256 128 128 128)
+patiences=(12 12 12 12)
 
 # Model params below need to be set in WPMixer.py Line 15, instead of this script
 wavelets=(db2 db3 db2 db2)
@@ -24,10 +24,10 @@ strides=(8 8 8 8)
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
 		--task_name long_term_forecast \
-		--data_name ETTh2_dep \
+		--data_name Weather_dep \
 		--is_training 1 \
 		--use_amp \
-		--model_id ETTh2_dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id Weather_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \
@@ -49,11 +49,11 @@ done
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
 		--task_name long_term_forecast \
-		--data_name ETTh2_dep \
+		--data_name Weather_dep \
 		--is_training 0 \
 		--use_mnn 1 \
 		--use_amp \
-		--model_id ETTh2_dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id Weather_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \

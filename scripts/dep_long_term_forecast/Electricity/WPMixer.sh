@@ -21,6 +21,7 @@ strides=(8 8 8 8)
 # Loop over datasets and prediction lengths
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
+	    --seed 42 \
 		--task_name long_term_forecast \
 		--is_training 1 \
 		--data_name Electricity_dep \
@@ -48,6 +49,7 @@ for i in "${!pred_lens[@]}"; do
 		--task_name long_term_forecast \
 		--is_training 0 \
 		--use_mnn 1 \
+		--mnn mlp \
 		--data_name Electricity_dep \
 		--model_id ECL_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \

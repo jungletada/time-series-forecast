@@ -26,7 +26,11 @@ import os
 
 
 def group_values(values, groups, group_name):
-    return np.array([v[~np.isnan(v)] for v in values[groups == group_name]])
+    # Check if values is a list (like naive2_forecasts after fix) or numpy array
+    if isinstance(values, list):
+        return [v for v, g in zip(values, groups) if g == group_name]
+    else:
+        return [v[~np.isnan(v)] for v in values[groups == group_name]]
 
 
 def mase(forecast, insample, outsample, frequency):
@@ -34,6 +38,11 @@ def mase(forecast, insample, outsample, frequency):
 
 
 def smape_2(forecast, target):
+    if isinstance(forecast, list):
+        forecast = np.array(forecast)
+    if isinstance(target, list):
+        target = np.array(target)
+        
     denom = np.abs(target) + np.abs(forecast)
     # divide by 1.0 instead of 0.0, in case when denom is zero the enumerator will be 0.0 anyway.
     denom[denom == 0.0] = 1.0
@@ -41,6 +50,11 @@ def smape_2(forecast, target):
 
 
 def mape(forecast, target):
+    if isinstance(forecast, list):
+        forecast = np.array(forecast)
+    if isinstance(target, list):
+        target = np.array(target)
+
     denom = np.abs(target)
     # divide by 1.0 instead of 0.0, in case when denom is zero the enumerator will be 0.0 anyway.
     denom[denom == 0.0] = 1.0
@@ -64,15 +78,16 @@ class M4Summary:
         grouped_owa = OrderedDict()
 
         naive2_forecasts = pd.read_csv(self.naive_path).values[:, 1:].astype(np.float32)
-        naive2_forecasts = np.array([v[~np.isnan(v)] for v in naive2_forecasts])
+        naive2_forecasts = [v[~np.isnan(v)] for v in naive2_forecasts]
 
         model_mases = {}
         naive2_smapes = {}
         naive2_mases = {}
         grouped_smapes = {}
         grouped_mapes = {}
+
         for group_name in M4Meta.seasonal_patterns:
-            file_name = self.file_path + group_name + "_forecast.csv"
+            file_name = os.path.join(self.file_path, f'{group_name}_forecast.csv')
             if os.path.exists(file_name):
                 model_forecast = pd.read_csv(file_name).values
 
@@ -100,12 +115,13 @@ class M4Summary:
         grouped_model_mases = self.summarize_groups(model_mases)
         grouped_naive2_smapes = self.summarize_groups(naive2_smapes)
         grouped_naive2_mases = self.summarize_groups(naive2_mases)
+        
         for k in grouped_model_mases.keys():
             grouped_owa[k] = (grouped_model_mases[k] / grouped_naive2_mases[k] +
                               grouped_smapes[k] / grouped_naive2_smapes[k]) / 2
 
         def round_all(d):
-            return dict(map(lambda kv: (kv[0], np.round(kv[1], 3)), d.items()))
+            return dict(map(lambda kv: (kv[0], np.round(kv[1], 4).item()), d.items()))
 
         return round_all(grouped_smapes), round_all(grouped_owa), round_all(grouped_mapes), round_all(
             grouped_model_mases)

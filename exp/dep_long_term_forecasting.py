@@ -267,19 +267,19 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 preds.append(pred_sum)
                 trues.append(true_sum)
 
-                # 可视化 (Visual)
-                if i % 20 == 0:
-                    # 为了可视化 Input，我们也需要对 Input 的 3 分量求和
-                    # Input: [B, 3, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
-                    input_x = batch_x.sum(dim=1).detach().cpu().numpy()
+                # # 可视化 (Visual)
+                # if i % 20 == 0:
+                #     # 为了可视化 Input，我们也需要对 Input 的 3 分量求和
+                #     # Input: [B, 3, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
+                #     input_x = batch_x.sum(dim=1).detach().cpu().numpy()
                     
-                    if test_data.scale and self.args.inverse:
-                        shape = input_x.shape
-                        input_x = test_data.inverse_transform(input_x.reshape(shape[0] * shape[1], -1)).reshape(shape)
+                #     if test_data.scale and self.args.inverse:
+                #         shape = input_x.shape
+                #         input_x = test_data.inverse_transform(input_x.reshape(shape[0] * shape[1], -1)).reshape(shape)
                     
-                    gt = np.concatenate((input_x[0, :, -1], true_sum[0, :, -1]), axis=0)
-                    pd = np.concatenate((input_x[0, :, -1], pred_sum[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(result_path, str(i) + '.pdf'))
+                #     gt = np.concatenate((input_x[0, :, -1], true_sum[0, :, -1]), axis=0)
+                #     pd = np.concatenate((input_x[0, :, -1], pred_sum[0, :, -1]), axis=0)
+                #     visual(gt, pd, os.path.join(result_path, str(i) + '.pdf'))
 
         # Concatenate all batches
         preds = np.concatenate(preds, axis=0)

@@ -5,7 +5,7 @@ export CUDA_VISIBLE_DEVICES=0
 seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.000242438 0.000201437 0.000132929 0.000239762)
-batches=(256 256 256 256)
+batches=(32 32 32 32)
 epochs=(30 30 30 30)
 lradjs=(type3 type3 type3 type3)
 patiences=(12 12 12 12)
@@ -27,7 +27,7 @@ for i in "${!pred_lens[@]}"; do
 		--data_name ETTh1_dep \
 		--is_training 1 \
 		--use_amp \
-		--model_id dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id ETTh1_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \
@@ -53,7 +53,7 @@ for i in "${!pred_lens[@]}"; do
 		--is_training 0 \
 		--use_mnn 1 \
 		--use_amp \
-		--model_id dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id ETTh1_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \

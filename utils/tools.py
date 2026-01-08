@@ -23,7 +23,8 @@ def seed_everything(seed=2026):
         torch.backends.mps.manual_seed(seed)
 
 
-def load_data_config(args, config_path):  
+def load_data_config(args):  
+    config_path = args.data_config
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     if args.data_name not in config:
@@ -32,7 +33,7 @@ def load_data_config(args, config_path):
     args.data_type = config['data_type']
     args.root_path = config['root_path']
     args.data_path = config.get('data_path', None)
-    args.seasonal_patterns = config.get('seasonal_patterns', None)
+    # args.seasonal_patterns = config.get('seasonal_patterns', None)
     return args
 
 def adjust_learning_rate(optimizer, epoch, args):

@@ -16,7 +16,6 @@ from utils.dtw_metric import dtw, accelerated_dtw
 # from utils.augmentation import run_augmentation, run_augmentation_single
 warnings.filterwarnings('ignore')
 
-
 class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
         super(Exp_Long_Term_Forecast, self).__init__(args)

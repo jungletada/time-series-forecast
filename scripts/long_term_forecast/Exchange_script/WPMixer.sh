@@ -27,7 +27,7 @@ for i in "${!pred_lens[@]}"; do
         --task_name long_term_forecast \
 		--is_training 1 \
 		--data_name Exchange \
-		--model_id wpmixer_exchange_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id exchange_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
 		--target OT \

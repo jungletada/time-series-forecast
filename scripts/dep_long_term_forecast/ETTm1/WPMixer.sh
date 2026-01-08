@@ -24,10 +24,10 @@ strides=(8 8 8 8)
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
 		--task_name long_term_forecast \
-		--data_name ETTh2_dep \
+		--data_name ETTm1_dep \
 		--is_training 1 \
 		--use_amp \
-		--model_id ETTh2_dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id ETTm1_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \
@@ -49,11 +49,11 @@ done
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
 		--task_name long_term_forecast \
-		--data_name ETTh2_dep \
+		--data_name ETTm1_dep \
 		--is_training 0 \
 		--use_mnn 1 \
 		--use_amp \
-		--model_id ETTh2_dep_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id ETTm1_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
     	--target OT \

@@ -13,7 +13,7 @@ from utils.tools import seed_everything, load_data_config
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
     # basic config
-    parser.add_argument('--seed', type=int, default=2026, help='random seed')
+    parser.add_argument('--seed', type=int, default=3407, help='random seed')
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
@@ -187,7 +187,7 @@ def get_logger(log_file='run.log'):
   
 if __name__ == '__main__':
     args = get_args()
-    args = load_data_config(args, args.data_config)
+    args = load_data_config(args)
     seed_everything(args.seed)
     
     if torch.cuda.is_available() and args.use_gpu:
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
             save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        save_path =f'{args.task_name}_{args.model_id}_{args.model}_{args.data_name}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_path = f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {

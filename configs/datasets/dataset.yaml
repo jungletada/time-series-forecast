@@ -44,6 +44,6 @@ Electricity:
   data_path: electricity.csv
 
 M4:
-  data_type: custom
+  data_type: m4
   root_path: dataset/m4/
   seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']

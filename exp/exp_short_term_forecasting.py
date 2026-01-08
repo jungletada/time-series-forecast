@@ -55,9 +55,9 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
 
-        path = os.path.join(self.args.checkpoints, setting)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        ckpt_path = os.path.join(self.args.checkpoints, setting['save_dir']+'_'+self.args.seasonal_patterns)
+        if not os.path.exists(ckpt_path):
+            os.makedirs(ckpt_path)
 
         time_now = time.time()
 
@@ -94,7 +94,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
 
                 batch_y_mark = batch_y_mark[:, -self.args.pred_len:, f_dim:].to(self.device)
                 loss_value = criterion(batch_x, self.args.frequency_map, outputs, batch_y, batch_y_mark)
-                loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
+                # loss_sharpness = mse((outputs[:, 1:, :] - outputs[:, :-1, :]), (batch_y[:, 1:, :] - batch_y[:, :-1, :]))
                 loss = loss_value  # + loss_sharpness * 1e-5
                 train_loss.append(loss.item())
 
@@ -109,20 +109,27 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 loss.backward()
                 model_optim.step()
 
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            # --- Added Train Time per Epoch ---
+            self.logger.info("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            # --- Added Peak GPU Memory Logic ---
+            if torch.cuda.is_available():
+                max_memory = torch.cuda.max_memory_allocated() / 1024 / 1024
+                self.logger.info("Epoch: {} Peak GPU memory: {:.2f} MB".format(epoch + 1, max_memory))
+                torch.cuda.reset_peak_memory_stats()
+            # -----------------------------------
             train_loss = np.average(train_loss)
             vali_loss = self.vali(train_loader, vali_loader, criterion)
             test_loss = vali_loss
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
+            self.logger.info("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
-            early_stopping(vali_loss, self.model, path)
+            early_stopping(vali_loss, self.model, ckpt_path)
             if early_stopping.early_stop:
-                print("Early stopping")
+                self.logger.info("Early stopping...")
                 break
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        best_model_path = path + '/' + 'checkpoint.pth'
+        best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
@@ -167,16 +174,24 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         x = x.unsqueeze(-1)
 
         if test:
-            print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            self.logger.info('loading model')
+            ckpt_path = os.path.join(self.args.checkpoints, setting['save_dir']+'_'+self.args.seasonal_patterns)
+            self.model.load_state_dict(torch.load(os.path.join(ckpt_path, 'checkpoint.pth')))
 
-        folder_path = './test_results/' + setting + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        result_path = os.path.join(self.args.results, setting['save_dir'])
+        if not os.path.exists(result_path):
+            os.makedirs(result_path)
+
+        # --- Added Initialization ---
+        inference_time = 0
+        # ----------------------------
 
         self.model.eval()
         with torch.no_grad():
             B, _, C = x.shape
+            # --- Added Timing Start ---
+            start_time = time.time()
+            # --------------------------
             dec_inp = torch.zeros((B, self.args.pred_len, C)).float().to(self.device)
             dec_inp = torch.cat([x[:, -self.args.label_len:, :], dec_inp], dim=1).float()
             # encoder - decoder
@@ -184,53 +199,47 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             id_list = np.arange(0, B, 1)
             id_list = np.append(id_list, B)
             for i in range(len(id_list) - 1):
-                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(x[id_list[i]:id_list[i + 1]], None,
-                                                                      dec_inp[id_list[i]:id_list[i + 1]], None)
+                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(
+                    x[id_list[i]:id_list[i + 1]], 
+                    None,
+                    dec_inp[id_list[i]:id_list[i + 1]], 
+                    None)
 
-                if id_list[i] % 1000 == 0:
-                    print(id_list[i])
+                # if id_list[i] % 1000 == 0:
+                #     self.logger.info(f"Processing batch {id_list[i]} of {B}")
 
             f_dim = -1 if self.args.features == 'MS' else 0
             outputs = outputs[:, -self.args.pred_len:, f_dim:]
             outputs = outputs.detach().cpu().numpy()
-
+            # --- Added Timing End ---
+            inference_time += time.time() - start_time
+            # ------------------------
             preds = outputs
-            trues = y
             x = x.detach().cpu().numpy()
+            # trues = y
+            # for i in range(0, preds.shape[0], preds.shape[0] // 10):
+            #     gt = np.concatenate((x[i, :, 0], trues[i]), axis=0)
+            #     pd = np.concatenate((x[i, :, 0], preds[i, :, 0]), axis=0)
+            #     visual(gt, pd, os.path.join(result_path, str(i) + '.pdf'))
 
-            for i in range(0, preds.shape[0], preds.shape[0] // 10):
-                gt = np.concatenate((x[i, :, 0], trues[i]), axis=0)
-                pd = np.concatenate((x[i, :, 0], preds[i, :, 0]), axis=0)
-                visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
-
-        print('test shape:', preds.shape)
-
-        # result save
-        folder_path = './m4_results/' + self.args.model + '/'
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        self.logger.info(f'test shape: {preds.shape}')
 
         forecasts_df = pandas.DataFrame(preds[:, :, 0], columns=[f'V{i + 1}' for i in range(self.args.pred_len)])
         forecasts_df.index = test_loader.dataset.ids[:preds.shape[0]]
         forecasts_df.index.name = 'id'
         forecasts_df.set_index(forecasts_df.columns[0], inplace=True)
-        forecasts_df.to_csv(folder_path + self.args.seasonal_patterns + '_forecast.csv')
+        forecasts_df.to_csv(os.path.join(result_path, f'{self.args.seasonal_patterns}_forecast.csv'))
 
-        print(self.args.model)
-        file_path = './m4_results/' + self.args.model + '/'
-        if 'Weekly_forecast.csv' in os.listdir(file_path) \
-                and 'Monthly_forecast.csv' in os.listdir(file_path) \
-                and 'Yearly_forecast.csv' in os.listdir(file_path) \
-                and 'Daily_forecast.csv' in os.listdir(file_path) \
-                and 'Hourly_forecast.csv' in os.listdir(file_path) \
-                and 'Quarterly_forecast.csv' in os.listdir(file_path):
-            m4_summary = M4Summary(file_path, self.args.root_path)
+        # self.logger.info(f'{self.args.model}')
+        m4_files = [f'{sp}_forecast.csv' for sp in ['Weekly', 'Monthly', 'Yearly', 'Daily', 'Hourly', 'Quarterly']]
+        if all(f in os.listdir(result_path) for f in m4_files):
+            m4_summary = M4Summary(result_path, self.args.root_path)
             # m4_forecast.set_index(m4_winner_forecast.columns[0], inplace=True)
             smape_results, owa_results, mape, mase = m4_summary.evaluate()
-            print('smape:', smape_results)
-            print('mape:', mape)
-            print('mase:', mase)
-            print('owa:', owa_results)
+            self.logger.info(f'smape: {smape_results}')
+            self.logger.info(f'mape: {mape}')
+            self.logger.info(f'mase: {mase}')
+            self.logger.info(f'owa: {owa_results}')
         else:
-            print('After all 6 tasks are finished, you can calculate the averaged index')
+            self.logger.info('After all 6 tasks are finished, you can calculate the averaged index')
         return

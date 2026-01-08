@@ -63,8 +63,8 @@ class Dataset_ETT_hour(Dataset):
             ds = load_dataset(HUGGINGFACE_REPO, name=cfg_name)
             df_raw = ds["train"].to_pandas()
             
-        border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+        border1s = [0,           12 * 30 * 24 - self.seq_len,  12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
+        border2s = [9 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24,   12 * 30 * 24 + 8 * 30 * 24]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
@@ -120,6 +120,7 @@ class Dataset_ETT_hour(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+
 class Dataset_ETT_minute(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTm1.csv',
@@ -162,8 +163,8 @@ class Dataset_ETT_minute(Dataset):
             ds = load_dataset(HUGGINGFACE_REPO, name=cfg_name)
             df_raw = ds["train"].to_pandas()
 
-        border1s = [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
-        border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
+        border1s = [0,               12 * 30 * 24 * 4 - self.seq_len,     12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
+        border2s = [9 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4,  12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
@@ -221,6 +222,7 @@ class Dataset_ETT_minute(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+
 class Dataset_Custom(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
@@ -273,11 +275,12 @@ class Dataset_Custom(Dataset):
         cols.remove(self.target)
         cols.remove('date')
         df_raw = df_raw[['date'] + cols + [self.target]]
+        num_train_cut = int(len(df_raw) * 0.35)
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw)  * 0.2)
         num_vali = len(df_raw) - num_train - num_test
-        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
-        border2s = [num_train, num_train + num_vali, len(df_raw)]
+        border1s = [0,             num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
+        border2s = [num_train_cut, num_train + num_vali,     len(df_raw)]
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
@@ -336,17 +339,19 @@ class Dataset_Custom(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+
 class Dataset_M4(Dataset):
     def __init__(self, args, root_path, flag='pred', size=None,
-                 features='S', data_path='Daily-test.csv',
+                 features='S', data_path='ETTh1.csv',
                  target='OT', scale=False, inverse=False, time_enc=0, freq='15min',
                  seasonal_patterns='Yearly'):
         # size [seq_len, label_len, pred_len]
-        # self.features = features
-        # self.target = target
-        # self.scale = scale
-        # self.inverse = inverse
-        # self.time_enc = time_enc
+        # init
+        self.features = features
+        self.target = target
+        self.scale = scale
+        self.inverse = inverse
+        self.time_enc = time_enc
         self.root_path = root_path
 
         self.seq_len = size[0]
@@ -366,9 +371,9 @@ class Dataset_M4(Dataset):
             dataset = M4Dataset.load(training=True, dataset_file=self.root_path)
         else:
             dataset = M4Dataset.load(training=False, dataset_file=self.root_path)
-    
-        training_values = [v[~np.isnan(v)] for v in
-                           dataset.values[dataset.groups == self.seasonal_patterns]]  # split different frequencies
+        training_values = np.array(
+            [v[~np.isnan(v)] for v in
+             dataset.values[dataset.groups == self.seasonal_patterns]])  # split different frequencies
         self.ids = np.array([i for i in dataset.ids[dataset.groups == self.seasonal_patterns]])
         self.timeseries = [ts for ts in training_values]
 

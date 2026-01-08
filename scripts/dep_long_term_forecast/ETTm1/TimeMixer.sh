@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=0
 
 model_name=TimeMixer
-dataset=ETTh1_dep
+dataset=ETTm1_dep
 seq_len=96
 e_layers=2
 down_sampling_layers=3
@@ -15,7 +15,7 @@ for i in "${!pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $dataset \
-    --model_id ETTh1_dep_$seq_len'_'${pred_lens[$i]} \
+    --model_id ETTm1_dep_$seq_len'_'${pred_lens[$i]} \
     --model $model_name \
     --features S \
     --target OT \
@@ -46,7 +46,7 @@ for i in "${!pred_lens[@]}"; do
     --use_mnn 1 \
     --mnn mlp \
     --data_name $dataset \
-    --model_id ETTh1_dep_$seq_len'_'${pred_lens[$i]} \
+    --model_id ETTm1_dep_$seq_len'_'${pred_lens[$i]} \
     --model $model_name \
     --features S \
     --target OT \
