@@ -1,6 +1,8 @@
 # Time Series Library (TSLib)
+-----
 TSLib is an open-source library for deep learning researchers, especially for deep time series analysis.
 Modified by the team of Waseda University, Tokyo, Japan
+-----
 ## Getting Started
 
 ### Prepare Data
@@ -60,45 +62,6 @@ docker exec -it tslib bash
 cd /workspace
 ```
 
-
-### Quick Test
-
-Quick test for all 5 tasks (1 epoch each):
-
-```bash
-# Run quick tests for all 5 tasks
-export CUDA_VISIBLE_DEVICES=0
-```
-```bash
-# 1. Long-term forecasting
-python -u run.py \
-    --task_name long_term_forecast \
-    --data_name Etth1 \
-    --is_training 1 \
-    --model_id test_long \
-    --model DLinear \
-    --features M \
-    --seq_len 96 --pred_len 96 \
-    --enc_in 7 --dec_in 7 --c_out 7 \
-    --train_epochs 1 \
-    --num_workers 2
-```
-
-```bash
-# 2. Short-term forecasting (using ETT dataset with shorter prediction length)
-python -u run.py \
-  --task_name long_term_forecast \
-  --is_training 1 \
-  --model_id test_short \
-  --model TimesNet \
-  --features M \
-  --seq_len 24 --label_len 12 --pred_len 24 \
-  --e_layers 2 --d_layers 1 --d_model 16 \
-  --d_ff 32 --enc_in 7 --dec_in 7 --c_out 7 --top_k 5 \
-  --train_epochs 1 \
-  --num_workers 2
-```
-
 ### Train and Evaluate
 We provide the experiment scripts for all benchmarks under the folder `scripts/`. You can reproduce the experiment results as the following examples:
 
@@ -107,6 +70,11 @@ We provide the experiment scripts for all benchmarks under the folder `scripts/`
 bash scripts/long_term_forecast/ETT_script/TimesNet_ETTh1.sh
 # short-term forecast
 bash scripts/short_term_forecast/TimesNet_M4.sh
+```
+
+Run TimeFilter
+```bash
+bash scripts/long_term_forecast/run_TimeFilter.sh
 ```
 
 ### Develop Your Own Model
