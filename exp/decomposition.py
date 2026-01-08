@@ -162,7 +162,7 @@ if __name__ == "__main__":
     (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
     (f'{data_root}/traffic', 'custom', 'traffic.csv'),
     ]
-    seq_lens = [96]
+    seq_lens = [96, 192, 336, 720]
     # shape [time_length, num_variables, num_imfs]
     for data_path, data_type, data_file in DATA_LIST:
         for seq_len in seq_lens:
