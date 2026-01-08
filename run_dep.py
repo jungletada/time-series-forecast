@@ -7,7 +7,7 @@ import argparse
 import torch
 import torch.backends
 from exp.dep_long_term_forecasting import Exp_Dep_Long_Term_Forecast
-from exp.dep_short_term_forecasting import Exp_Dep_Short_Term_Forecasting
+from exp.dep_short_term_forecasting import Dep_Short_Term_Forecasting
 from utils.tools import seed_everything, load_data_config
 
 def get_args():
@@ -209,14 +209,17 @@ if __name__ == '__main__':
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Dep_Long_Term_Forecast
     elif args.task_name == 'short_term_forecast':
-        Exp = Exp_Dep_Short_Term_Forecasting
+        Exp = Dep_Short_Term_Forecasting
     else:
         Exp = Exp_Dep_Long_Term_Forecast
 
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            if args.data_type == 'm4':
+                save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
+            else:
+                save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
             save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
@@ -248,7 +251,10 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        save_path = f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        if args.data_type == 'm4':
+                save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
+        else:
+            save_path = f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {

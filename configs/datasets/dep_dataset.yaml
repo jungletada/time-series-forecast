@@ -55,5 +55,4 @@ Electricity_dep:
 M4_dep:
   data_type: M4_dep
   root_path: dataset/m4/
-  seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']
   k: 3

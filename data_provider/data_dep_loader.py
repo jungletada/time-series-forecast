@@ -5,6 +5,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
+from data_provider.m4 import M4Dataset, M4Meta
 from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
@@ -14,6 +15,7 @@ def merge_components(data_npy, k):
     T, C, N_IMFS = data_npy.shape
     # 确保 k 不越界
     k = min(k, N_IMFS - 1)
+    
     if k > 0 and k < N_IMFS - 1: 
         comp1 = np.sum(data_npy[:, :, :k], axis=-1)
         comp2 = data_npy[:, :, k]
@@ -27,6 +29,9 @@ def merge_components(data_npy, k):
         comp2 = data_npy[:, :, N_IMFS - 2]
         comp3 = data_npy[:, :, N_IMFS - 1]
     # Stack -> [T, C, 3]
+    # comp1 = data_npy[:, :, 0]
+    # comp2 = data_npy[:, :, 1]
+    # comp3 = data_npy[:, :, 2]
     data_processed = np.stack([comp1, comp2, comp3], axis=-1)
     
     return data_processed
@@ -497,77 +502,152 @@ class Dataset_Custom_Decomposed(Dataset):
 
 class Dataset_M4_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='pred', size=None,
-                 features='S', data_path='Daily-test.csv',
+                 features='S', data_path=None,
                  target='OT', scale=False, inverse=False, time_enc=0, freq='15min',
                  seasonal_patterns='Yearly'):
         # size [seq_len, label_len, pred_len]
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.inverse = inverse
-        self.time_enc = time_enc
+        self.args = args
         self.root_path = root_path
-
+        self.flag = flag
+        # self.features = features
+        # self.target = target
+        # self.scale = scale # M4 通常不建议在 Dataset 层做 Global Scaling
+        # self.inverse = inverse
+        # self.time_enc = time_enc
+        
         self.seq_len = size[0]
         self.label_len = size[1]
         self.pred_len = size[2]
-
+        
+        # M4 特有参数
         self.seasonal_patterns = seasonal_patterns
         self.history_size = M4Meta.history_size[seasonal_patterns]
         self.window_sampling_limit = int(self.history_size * self.pred_len)
-        self.flag = flag
-
+        
+        # 获取 selected_k
+        self.k = getattr(self.args, 'selected_k', 2)
+        
         self.__read_data__()
 
     def __read_data__(self):
-        # M4Dataset.initialize()
-        if self.flag == 'train':
-            dataset = M4Dataset.load(training=True, dataset_file=self.root_path)
-        else:
-            dataset = M4Dataset.load(training=False, dataset_file=self.root_path)
-        training_values = np.array(
-            [v[~np.isnan(v)] for v in
-             dataset.values[dataset.groups == self.seasonal_patterns]])  # split different frequencies
-        self.ids = np.array([i for i in dataset.ids[dataset.groups == self.seasonal_patterns]])
-        self.timeseries = [ts for ts in training_values]
+        # ==========================================
+        # Part 1: 加载 IDs (为了修复报错)
+        # ==========================================
+        dataset_info = M4Dataset.load(training=True, dataset_file=self.root_path)
+        
+        # 筛选当前频率对应的 IDs
+        self.ids = np.array([
+            i for i in dataset_info.ids[dataset_info.groups == self.seasonal_patterns]
+        ])
+
+        # ==========================================
+        # Part 2: 加载分解后的数据 (.npy)
+        # ==========================================
+        # 1. 构建文件名
+        # 始终加载 train_cd.npy，因为它是历史输入源
+        file_name = f"M4_{self.seasonal_patterns}_train_cd.npy"
+        file_path = os.path.join(self.root_path, file_name)
+        
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Decomposed M4 data not found: {file_path}")
+            
+        # 2. 加载 Object Array
+        loaded_data = np.load(file_path, allow_pickle=True)
+        
+        # 安全检查：确保 ID 数量和加载的数据序列数量一致
+        if len(self.ids) != len(loaded_data):
+            print(f"Warning: IDs count ({len(self.ids)}) != Loaded Data count ({len(loaded_data)})")
+            # 通常只要 frequency 对上了，这里是一致的。如果不一致，说明分解文件版本不对。
+
+        self.timeseries = []
+        
+        # 3. 预处理：Merge Components
+        for series in loaded_data:
+            T, N_IMFS = series.shape
+            # [T, N_IMFS] -> [T, 1, N_IMFS]
+            series_expanded = series.reshape(T, 1, N_IMFS)
+            # Merge -> [T, 1, 3]
+            merged = merge_components(series_expanded, self.k)
+            # Transpose -> [3, T, 1]
+            merged = merged.transpose(2, 0, 1) 
+            
+            self.timeseries.append(merged)
 
     def __getitem__(self, index):
-        insample = np.zeros((self.seq_len, 1))
-        insample_mask = np.zeros((self.seq_len, 1))
-        outsample = np.zeros((self.pred_len + self.label_len, 1))
-        outsample_mask = np.zeros((self.pred_len + self.label_len, 1))  # m4 dataset
+        # 1. 初始化 Data 和 Mask
+        # shape: [3, seq_len, 1]
+        insample = np.zeros((3, self.seq_len, 1))
+        insample_mask = np.zeros((3, self.seq_len, 1)) # Mask 初始化为 0
+        
+        # shape: [3, label_len + pred_len, 1]
+        outsample = np.zeros((3, self.pred_len + self.label_len, 1))
+        outsample_mask = np.zeros((3, self.pred_len + self.label_len, 1)) # Mask 初始化为 0
 
+        # 获取第 index 条序列: [3, Total_Len, 1]
         sampled_timeseries = self.timeseries[index]
-        cut_point = np.random.randint(low=max(1, len(sampled_timeseries) - self.window_sampling_limit),
-                                      high=len(sampled_timeseries),
-                                      size=1)[0]
+        total_len = sampled_timeseries.shape[1]
+        
+        # 随机采样切分点
+        cut_point = np.random.randint(
+            low=max(1, total_len - self.window_sampling_limit),
+            high=total_len,
+            size=1)[0]
 
-        insample_window = sampled_timeseries[max(0, cut_point - self.seq_len):cut_point]
-        insample[-len(insample_window):, 0] = insample_window
-        insample_mask[-len(insample_window):, 0] = 1.0
-        outsample_window = sampled_timeseries[
-                           max(0, cut_point - self.label_len):min(len(sampled_timeseries), cut_point + self.pred_len)]
-        outsample[:len(outsample_window), 0] = outsample_window
-        outsample_mask[:len(outsample_window), 0] = 1.0
+        # --- 构造 Input ---
+        # 取出窗口
+        insample_window = sampled_timeseries[:, max(0, cut_point - self.seq_len):cut_point, :]
+        win_len = insample_window.shape[1]
+        
+        # 填充数据 (填在末尾)
+        insample[:, -win_len:, :] = insample_window
+        # 填充 Mask (有效数据部分设为 1)
+        insample_mask[:, -win_len:, :] = 1.0
+
+        # --- 构造 Output ---
+        # 取出窗口
+        outsample_window = sampled_timeseries[:, 
+                           max(0, cut_point - self.label_len):min(total_len, cut_point + self.pred_len), :]
+        out_win_len = outsample_window.shape[1]
+        
+        # 填充数据 (填在开头)
+        outsample[:, :out_win_len, :] = outsample_window
+        # 填充 Mask (有效数据部分设为 1)
+        outsample_mask[:, :out_win_len, :] = 1.0
+        
+        # 返回: x, y, x_mark(即insample_mask), y_mark(即outsample_mask)
         return insample, outsample, insample_mask, outsample_mask
 
     def __len__(self):
         return len(self.timeseries)
 
     def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+        """
+        M4 反归一化
+        由于我们没有做 Global Scaling，这里的反归一化 = 将3个分量求和
+        data shape: [Batch, 3, T, C]
+        """
+        # 如果是 [Batch, 3, T, C]，则在 dim=1 求和
+        if data.ndim == 4 and data.shape[1] == 3:
+            return data.sum(dim=1)
+        # 如果已经是 [Batch, T, C]，说明已经求和过了
+        return data
 
     def last_insample_window(self):
         """
-        The last window of insample size of all timeseries.
-        This function does not support batching and does not reshuffle timeseries.
-
-        :return: Last insample window of all timeseries. Shape "timeseries, insample size"
+        用于测试阶段：获取所有序列最后 seq_len 长度的数据
+        Return: [Num_Series, 3, Seq_Len, 1]
         """
-        insample = np.zeros((len(self.timeseries), self.seq_len))
-        insample_mask = np.zeros((len(self.timeseries), self.seq_len))
+        insample = np.zeros((len(self.timeseries), 3, self.seq_len, 1))
+        
         for i, ts in enumerate(self.timeseries):
-            ts_last_window = ts[-self.seq_len:]
-            insample[i, -len(ts):] = ts_last_window
-            insample_mask[i, -len(ts):] = 1.0
-        return insample, insample_mask
+            # ts: [3, Total_Len, 1]
+            ts_len = ts.shape[1]
+            # 取最后一段
+            last_window = ts[:, -self.seq_len:, :]
+            win_len = last_window.shape[1]
+            
+            # 填充
+            insample[i, :, -win_len:, :] = last_window
+            
+        return insample, None # mask省略
+

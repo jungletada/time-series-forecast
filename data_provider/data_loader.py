@@ -336,11 +336,106 @@ class Dataset_Custom(Dataset):
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
 
+class Dataset_PEMS(Dataset):
+    def __init__(self, args, root_path, flag='train', size=None,
+                 features='S', data_path='PEMS03.npz',
+                 target=10, scale=True, time_enc=0, 
+                 freq='h', seasonal_patterns=None):
+        # size [seq_len, label_len, pred_len]
+        self.seq_len = size[0]
+        self.label_len = size[1]
+        self.pred_len = size[2]
+        # init
+        assert flag in ['train', 'test', 'val']
+        type_map = {'train': 0, 'val': 1, 'test': 2}
+        self.set_type = type_map[flag]
+
+        self.features = features
+        self.target = int(target) 
+        self.scale = scale
+        self.time_enc = time_enc
+        self.freq = freq
+
+        self.root_path = root_path
+        self.data_path = data_path
+        self.__read_data__()
+
+    def __read_data__(self):
+        self.scaler = StandardScaler()
+        data_file = os.path.join(self.root_path, self.data_path)
+        data = np.load(data_file, allow_pickle=True)
+        data = data['data'][:, :, 0] # Use Flow
+        # 1. 划分数据集索引
+        train_ratio = 0.6
+        valid_ratio = 0.2
+        len_data = len(data)
+        
+        train_slice = slice(0, int(train_ratio * len_data))
+        valid_slice = slice(int(train_ratio * len_data), int((train_ratio + valid_ratio) * len_data))
+        test_slice = slice(int((train_ratio + valid_ratio) * len_data), len_data)
+
+        if self.features == 'S':
+            data = data[:, [self.target]].reshape(-1, 1)
+            print(f"data: {data.shape}")
+        len_train = int(train_ratio * len(data))
+        len_valid = int(valid_ratio * len(data))
+
+        train_data = data[:len_train]
+        valid_data = data[len_train:len_train + len_valid]
+        test_data = data[len_train + len_valid:]
+
+        total_data = [train_data, valid_data, test_data]
+        current_data = total_data[self.set_type]
+
+        if self.scale:
+            train_data = data[train_slice]
+            self.scaler.fit(train_data) # <--- 只 Fit 训练集！
+            data = self.scaler.transform(data)
+        
+        # 3. 根据 flag 选择当前需要的数据部分
+        if self.set_type == 0:
+            current_data = data[train_slice]
+        elif self.set_type == 1:
+            current_data = data[valid_slice]
+        else:
+            current_data = data[test_slice]
+
+        df = pd.DataFrame(current_data)
+        df = df.fillna(method='ffill', limit=len(df)).fillna(method='bfill', limit=len(df)).values
+
+        self.data_x = df
+        self.data_y = df
+
+    def __getitem__(self, index):
+        if self.set_type == 2:
+            s_begin = index * 12
+        else:
+            s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+
+        seq_x = self.data_x[s_begin:s_end]
+        seq_y = self.data_y[r_begin:r_end]
+        seq_x_mark = torch.zeros((seq_x.shape[0], 1))
+        seq_y_mark = torch.zeros((seq_y.shape[0], 1))
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        if self.set_type == 2:
+            return (len(self.data_x) - self.seq_len - self.pred_len + 1) // 12
+        else:
+            return len(self.data_x) - self.seq_len - self.pred_len + 1
+
+    def inverse_transform(self, data):
+        return self.scaler.inverse_transform(data)
+    
 class Dataset_M4(Dataset):
     def __init__(self, args, root_path, flag='pred', size=None,
-                 features='S', data_path='Daily-test.csv',
-                 target='OT', scale=False, inverse=False, time_enc=0, freq='15min',
-                 seasonal_patterns='Yearly'):
+                 features='S', data_path=None,
+                 target='OT', scale=False, inverse=False, time_enc=0,
+                 freq='15min', seasonal_patterns='Yearly'):
         # size [seq_len, label_len, pred_len]
         # self.features = features
         # self.target = target
@@ -413,7 +508,6 @@ class Dataset_M4(Dataset):
             insample_mask[i, -len(ts):] = 1.0
         return insample, insample_mask
 
-
 class PSMSegLoader(Dataset):
     def __init__(self, args, root_path, win_size, step=1, flag="train"):
         self.flag = flag
@@ -474,7 +568,6 @@ class PSMSegLoader(Dataset):
             return np.float32(self.test[
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
-
 
 class MSLSegLoader(Dataset):
     def __init__(self, args, root_path, win_size, step=1, flag="train"):
@@ -537,7 +630,6 @@ class MSLSegLoader(Dataset):
             return np.float32(self.test[
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
-
 
 class SMAPSegLoader(Dataset):
     def __init__(self, args, root_path, win_size, step=1, flag="train"):
@@ -603,7 +695,6 @@ class SMAPSegLoader(Dataset):
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
-
 class SMDSegLoader(Dataset):
     def __init__(self, args, root_path, win_size, step=100, flag="train"):
         self.flag = flag
@@ -663,7 +754,6 @@ class SMDSegLoader(Dataset):
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
-
 class SWATSegLoader(Dataset):
     def __init__(self, args, root_path, win_size, step=1, flag="train"):
         self.flag = flag
@@ -721,7 +811,6 @@ class SWATSegLoader(Dataset):
             return np.float32(self.test[
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
-
 
 class UEAloader(Dataset):
     """

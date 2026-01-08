@@ -82,30 +82,6 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
         return outputs, b_y
 
-    def vali(self, vali_data, vali_loader, criterion):
-        total_loss = []
-        # 切换所有模型到 Eval 模式
-        for m in self.model: m.eval()
-            
-        with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
-                loss_sum = 0
-                # 对 3 个分量分别预测并计算 Loss
-                for comp_idx in range(self.num_components):
-                    pred, true = self._process_one_batch(
-                        batch_x, batch_y, batch_x_mark, batch_y_mark, comp_idx
-                    )
-                    loss = criterion(pred.detach(), true.detach())
-                    loss_sum += loss.item()
-                
-                # 记录平均 Loss (或者总 Loss)
-                total_loss.append(loss_sum / self.num_components)
-                
-        total_loss = np.average(total_loss)
-        # 切换回 Train 模式
-        for m in self.model: m.train()
-        return total_loss
-
     def train(self, setting):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
@@ -208,6 +184,30 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
+
+    def vali(self, vali_data, vali_loader, criterion):
+        total_loss = []
+        # 切换所有模型到 Eval 模式
+        for m in self.model: m.eval()
+            
+        with torch.no_grad():
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+                loss_sum = 0
+                # 对 3 个分量分别预测并计算 Loss
+                for comp_idx in range(self.num_components):
+                    pred, true = self._process_one_batch(
+                        batch_x, batch_y, batch_x_mark, batch_y_mark, comp_idx
+                    )
+                    loss = criterion(pred.detach(), true.detach())
+                    loss_sum += loss.item()
+                
+                # 记录平均 Loss (或者总 Loss)
+                total_loss.append(loss_sum / self.num_components)
+                
+        total_loss = np.average(total_loss)
+        # 切换回 Train 模式
+        for m in self.model: m.train()
+        return total_loss
 
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')

@@ -43,7 +43,31 @@ Electricity:
   root_path: dataset/electricity/
   data_path: electricity.csv
 
-M4:
-  data_type: m4
-  root_path: dataset/m4/
-  seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']
+PEMS03:
+  data_type: PEMS
+  root_path: dataset/PEMS/
+  data_path: PEMS03.npz
+  Target: 141
+
+PEMS04:
+  data_type: PEMS
+  root_path: dataset/PEMS/
+  data_path: PEMS04.npz
+  Target: 97
+
+PEMS07:
+  data_type: PEMS
+  root_path: dataset/PEMS/
+  data_path: PEMS07.npz
+  Target: 178
+
+PEMS08:
+  data_type: PEMS
+  root_path: dataset/PEMS/
+  data_path: PEMS08.npz
+  Target: 9
+  
+# M4:
+#   data_type: m4
+#   root_path: dataset/m4/
+#   seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']

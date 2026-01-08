@@ -1,6 +1,6 @@
 from data_provider.data_loader import \
     Dataset_ETT_hour, Dataset_ETT_minute, \
-    Dataset_Custom, Dataset_M4, \
+    Dataset_Custom, Dataset_M4, Dataset_PEMS, \
     PSMSegLoader, MSLSegLoader, \
     SMAPSegLoader, SMDSegLoader, \
     SWATSegLoader, UEAloader
@@ -15,6 +15,7 @@ data_dict = {
     'ETTm1': Dataset_ETT_minute,
     'ETTm2': Dataset_ETT_minute,
     'custom': Dataset_Custom,
+    'PEMS': Dataset_PEMS,
     'm4': Dataset_M4,
     'PSM': PSMSegLoader,
     'MSL': MSLSegLoader,

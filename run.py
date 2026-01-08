@@ -28,13 +28,12 @@ def get_args():
 
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
-    parser.add_argument('--data_name', type=str, default='ETTh1', help='dataset name', 
-                        choices=['ETTh1', 'ETTh2', 'ETTm1', 'ETTm2', 'Exchange', 'Illness', 'Weather', 'Traffic', 'Electricity', 'M4'])
+    parser.add_argument('--data_name', type=str, default='ETTh1', help='dataset name')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; " \
                         "M: multivariate predict multivariate, S: univariate predict univariate, MS: multivariate predict univariate',
                         choices=['M', 'S', 'MS'])
-    parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
+    parser.add_argument('--target', default='OT', help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily," \
                             "b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')

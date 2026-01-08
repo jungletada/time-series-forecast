@@ -10,7 +10,6 @@ class DFT_series_decomp(nn.Module):
     """
     Series decomposition block
     """
-
     def __init__(self, top_k: int = 5):
         super(DFT_series_decomp, self).__init__()
         self.top_k = top_k
@@ -25,12 +24,10 @@ class DFT_series_decomp(nn.Module):
         x_trend = x - x_season
         return x_season, x_trend
 
-
 class MultiScaleSeasonMixing(nn.Module):
     """
     Bottom-up mixing season pattern
     """
-
     def __init__(self, configs):
         super(MultiScaleSeasonMixing, self).__init__()
 
@@ -69,12 +66,10 @@ class MultiScaleSeasonMixing(nn.Module):
 
         return out_season_list
 
-
 class MultiScaleTrendMixing(nn.Module):
     """
     Top-down mixing trend pattern
     """
-
     def __init__(self, configs):
         super(MultiScaleTrendMixing, self).__init__()
 
@@ -95,7 +90,6 @@ class MultiScaleTrendMixing(nn.Module):
             ])
 
     def forward(self, trend_list):
-
         # mixing low->high
         trend_list_reverse = trend_list.copy()
         trend_list_reverse.reverse()
@@ -113,7 +107,6 @@ class MultiScaleTrendMixing(nn.Module):
 
         out_trend_list.reverse()
         return out_trend_list
-
 
 class PastDecomposableMixing(nn.Module):
     def __init__(self, configs):
@@ -182,7 +175,6 @@ class PastDecomposableMixing(nn.Module):
                 out = ori + self.out_cross_layer(out)
             out_list.append(out[:, :length, :])
         return out_list
-
 
 class Model(nn.Module):
     def __init__(self, configs):

@@ -7,7 +7,6 @@ down_sampling_layers=1
 down_sampling_window=2
 learning_rate=0.01
 d_model=32
-batch_size=16
 d_ff=(32 32 64 16 32 32)
 patterns=('Monthly' 'Yearly' 'Quarterly' 'Daily' 'Weekly' 'Hourly')
 
