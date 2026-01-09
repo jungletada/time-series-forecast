@@ -16,7 +16,6 @@ for i in "${!pred_lens[@]}"; do
     --model_id PEMS03_96_${pred_lens[$i]} \
     --model $model_name \
     --features $features \
-    --target 141 \
     --seq_len 96 \
     --pred_len ${pred_lens[$i]} \
     --patch_len 48 \
@@ -38,7 +37,6 @@ for i in "${!pred_lens[@]}"; do
     --model_id PEMS04_96_${pred_lens[$i]} \
     --model $model_name \
     --features $features \
-    --target 97 \
     --seq_len 96 \
     --pred_len ${pred_lens[$i]} \
     --patch_len 48 \

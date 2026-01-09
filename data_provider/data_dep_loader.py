@@ -577,7 +577,7 @@ class Dataset_PEMS_Decomposed(Dataset):
             print(f">>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
             data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
-            data_processed = data_mnn.clone().detach()
+            data_processed = data_mnn.copy()
             # length, num_channels, num_imfs = data_processed.shape
             # # data_pad = np.zeros((length, num_channels-1, num_imfs))
             # data_processed[:, :, self.target] = data_mnn
