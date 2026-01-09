@@ -33,8 +33,19 @@ def load_data_config(args):
     args.data_type = config['data_type']
     args.root_path = config['root_path']
     args.data_path = config.get('data_path', None)
-    if config.get('Target', None) is not None:
-        args.target = config['Target']
+    args.selected_k = config.get('selected_k', 2)
+    if config.get('target', None) is not None:
+        args.target = config['target']
+        
+    if args.features == 'MS' or args.features == 'M':
+        args.enc_in = config['channels']
+        args.dec_in = config['channels']
+        args.c_out = config['channels']
+        
+    elif args.features == 'S':
+        args.enc_in = 1
+        args.dec_in = 1
+        args.c_out = 1
     # args.seasonal_patterns = config.get('seasonal_patterns', None)
     return args
 

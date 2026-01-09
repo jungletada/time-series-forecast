@@ -18,17 +18,14 @@ def get_args():
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
-    parser.add_argument('--use_mnn', type=int, default=1, help='use mnn for inference.')
+    parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
-    parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name', 
-                        choices=['ETTh1_dep', 'ETTh2_dep', 'ETTm1_dep', 'ETTm2_dep', 
-                                 'Exchange_dep', 'Illness_dep', 'Weather_dep', 
-                                 'Traffic_dep', 'Electricity_dep', 'M4_dep'])
+    parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name')
     parser.add_argument('--features', type=str, default='S',
                         help='forecasting task, options:[M, S, MS]; " \
                         "M: multivariate predict multivariate, S: univariate predict univariate, MS: multivariate predict univariate',
@@ -163,7 +160,6 @@ def get_args():
     args = parser.parse_args()
     return args
 
-
 def get_logger(log_file='run.log'):
     """Set up logging to a file, replacing print with logger.info or logger.error
     """
@@ -183,7 +179,6 @@ def get_logger(log_file='run.log'):
         logger.addHandler(fh)
         logger.addHandler(ch)
     return logger
-
   
 if __name__ == '__main__':
     args = get_args()

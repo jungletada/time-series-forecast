@@ -26,6 +26,7 @@ for i in "${!pred_lens[@]}"; do
     --batch_size 16 \
     --itr 1
 done
+
 # python -u run.py \
 #   --task_name long_term_forecast \
 #   --is_training 1 \

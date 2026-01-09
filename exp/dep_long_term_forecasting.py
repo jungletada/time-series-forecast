@@ -40,6 +40,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
     def _get_data(self, flag):
         data_set, data_loader = data_provider(self.args, flag)
+        print(f">>>>>>>>>>>>>>>>>>>>>> length of data_set: {len(data_set)}")
         return data_set, data_loader
 
     def _select_optimizer(self):

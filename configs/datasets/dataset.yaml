@@ -2,70 +2,92 @@ ETTh1:
   data_type: ETTh1
   root_path: dataset/ETT-small/
   data_path: ETTh1.csv
+  target: OT
+  channels: 7
 
 ETTh2:
   data_type: ETTh2
   root_path: dataset/ETT-small/
   data_path: ETTh2.csv
+  target: OT
+  channels: 7
 
 ETTm1:
   data_type: ETTm1
   root_path: dataset/ETT-small/
   data_path: ETTm1.csv
-
+  target: OT
+  channels: 7
+  
 ETTm2:
   data_type: ETTm2
   root_path: dataset/ETT-small/
   data_path: ETTm2.csv
+  target: OT
+  channels: 7
 
 Exchange:
   data_type: custom
   root_path: dataset/exchange_rate/
   data_path: exchange_rate.csv
+  target: OT
+  channels: 8
 
 Illness:
   data_type: custom
   root_path: dataset/illness/
   data_path: national_illness.csv
+  target: OT
+  channels: 7
 
 Weather:
   data_type: custom
   root_path: dataset/weather/
   data_path: weather.csv
+  target: OT
+  channels: 21
 
 Traffic:
   data_type: custom
   root_path: dataset/traffic/
   data_path: traffic.csv
+  target: OT
+  channels: 862
 
 Electricity:
   data_type: custom
   root_path: dataset/electricity/
   data_path: electricity.csv
+  target: OT
+  channels: 321
 
 PEMS03:
   data_type: PEMS
   root_path: dataset/PEMS/
   data_path: PEMS03.npz
-  Target: 141
+  channels: 358
+  target: 141
 
 PEMS04:
   data_type: PEMS
   root_path: dataset/PEMS/
   data_path: PEMS04.npz
-  Target: 97
+  channels: 307
+  target: 97
 
 PEMS07:
   data_type: PEMS
   root_path: dataset/PEMS/
   data_path: PEMS07.npz
-  Target: 178
+  channels: 883
+  target: 178
 
 PEMS08:
   data_type: PEMS
   root_path: dataset/PEMS/
   data_path: PEMS08.npz
-  Target: 9
+  channels: 170
+  target: 9
   
 # M4:
 #   data_type: m4
