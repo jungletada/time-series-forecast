@@ -12,7 +12,6 @@ for i in "${!pred_lens[@]}"; do
     --model_id PEMS08_96_${pred_lens[$i]} \
     --model $model_name \
     --features MS \
-    --target 9 \
     --seq_len 96 \
     --pred_len ${pred_lens[$i]} \
     --e_layers 2 \

@@ -11,7 +11,6 @@ python -u run.py \
   --model_id PEMS07_96_${pred_lens[$i]} \
   --model $model_name \
   --features MS \
-  --target 178 \
   --seq_len 96 \
   --pred_len ${pred_lens[$i]} \
   --e_layers 2 \
