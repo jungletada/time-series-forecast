@@ -113,6 +113,10 @@ class Model(nn.Module):
         x_enc = x_enc.div(stdev)
 
         # embedding
+        # 2. Embedding
+        # Output: [Batch, Seq_Len, d_model]
+        if x_mark_enc is not None and torch.all(x_mark_enc == 0):
+            x_mark_enc = None
         enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
         enc_out = self.predict_linear(enc_out.permute(0, 2, 1)).permute(
             0, 2, 1)  # align temporal dimension
