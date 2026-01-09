@@ -1,7 +1,7 @@
 model_name=TimeFilter
 seq_len=96
-features=MS
 pred_lens=(12 24 48)
+features=MS
 
 for i in "${!pred_lens[@]}"; do
     python -u run.py \
