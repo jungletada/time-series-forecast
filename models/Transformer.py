@@ -75,9 +75,14 @@ class Model(nn.Module):
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Embedding
+         # 2. Embedding
+        # Output: [Batch, Seq_Len, d_model]
+        if x_mark_enc is not None and torch.all(x_mark_enc == 0):
+            x_mark_enc = None
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
-
+        if x_mark_dec is not None and torch.all(x_mark_dec == 0):
+            x_mark_dec = None
         dec_out = self.dec_embedding(x_dec, x_mark_dec)
         dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)
         return dec_out

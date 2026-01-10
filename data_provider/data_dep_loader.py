@@ -411,10 +411,12 @@ class Dataset_Custom_Decomposed(Dataset):
             print(f"Loading MNN data from {mnn_npy_path}")
             data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
             assert data_mnn.shape[0] == data_processed.shape[0]
+            # print(f"data_mnn.shape: {data_mnn.shape}")
+            # print(f"data_processed.shape: {data_processed.shape}")
             # length, num_channels, num_imfs = data_processed.shape
             # data_pad = np.zeros((length, num_channels-1, num_imfs))
             # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
-            data_processed[:, self.target_idx - 1, :] = data_mnn
+            data_processed = data_mnn
 
         # 5. 标准化 (Scaling)
         if self.scale:

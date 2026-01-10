@@ -9,10 +9,8 @@ batch_size=32
 train_epochs=20
 patience=10
 pred_lens=(96 192 336 720)
-# For MS, M:
-#   --enc_in 321 \ 
-#   --dec_in 321 \  
-#   --c_out 321 \   
+features=S
+
 for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \
     --task_name long_term_forecast \
@@ -20,11 +18,7 @@ for i in "${!pred_lens[@]}"; do
     --data_name Electricity_dep \
     --model_id ECL_dep_96_${pred_lens[$i]} \
     --model TimeMixer \
-    --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
+    --features $features \
     --seq_len 96 \
     --label_len 0 \
     --pred_len ${pred_lens[$i]} \
@@ -54,11 +48,7 @@ for i in "${!pred_lens[@]}"; do
     --data_name Electricity_dep \
     --model_id ECL_dep_96_${pred_lens[$i]} \
     --model TimeMixer \
-    --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
+    --features $features \
     --seq_len 96 \
     --label_len 0 \
     --pred_len ${pred_lens[$i]} \

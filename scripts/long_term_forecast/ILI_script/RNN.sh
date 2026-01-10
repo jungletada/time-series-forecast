@@ -1,21 +1,26 @@
-export CUDA_VISIBLE_DEVICES=0
-model_name=Transformer
-pred_lens=(96 192 336 720)
+model_name=RNN
+rnn_type=RNN
+d_model=64
+e_layers=3
+dropout=0.1
+pred_lens=(24 36 48 60)
 features=S
+
 for pred_len in "${pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
     --is_training 1 \
-    --data_name Electricity \
-    --model_id ECL_96_$pred_len \
+    --data_name Illness \
+    --model_id Ill_36_$pred_len \
     --model $model_name \
     --features $features \
-    --seq_len 96 \
-    --label_len 48 \
+    --seq_len 36 \
+    --label_len 0 \
     --pred_len $pred_len \
-    --e_layers 2 \
-    --d_layers 1 \
-    --factor 3 \
+    --d_model $d_model \
+    --rnn_type $rnn_type \
+    --e_layers $e_layers \
+    --dropout $dropout \
     --des 'Exp' \
     --batch_size 32 \
     --learning_rate 0.001 \

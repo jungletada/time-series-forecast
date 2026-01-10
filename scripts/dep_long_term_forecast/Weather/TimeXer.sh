@@ -1,14 +1,14 @@
 export CUDA_VISIBLE_DEVICES=0
 
+pred_lens=(96 192 336 720)
+data_name=Weather_dep
 features=S
-d_model=(256 128 512 256)
-
 for i in "${!pred_lens[@]}"; do 
   python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 1 \
-    --data_name Electricity_dep \
-    --model_id ECL_dep_96_${pred_lens[$i]} \
+    --data_name $data_name \
+    --model_id Weather_96_${pred_lens[$i]} \
     --model TimeXer \
     --features $features \
     --seq_len 96 \
@@ -20,14 +20,16 @@ for i in "${!pred_lens[@]}"; do
     --d_ff 512 \
     --batch_size 4 \
     --itr 1
+done
 
-    python -u run_dep.py \
+for i in "${!pred_lens[@]}"; do 
+  python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 0 \
     --use_mnn 1 \
     --mnn mlp \
-    --data_name Electricity_dep \
-    --model_id ECL_dep_96_${pred_lens[$i]} \
+    --data_name $data_name \
+    --model_id Weather_96_${pred_lens[$i]} \
     --model TimeXer \
     --features $features \
     --seq_len 96 \

@@ -43,7 +43,7 @@ def get_args():
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
     parser.add_argument('--seasonal_patterns', type=str, default='Monthly', help='subset for M4')
     parser.add_argument('--inverse', action='store_true', help='inverse output data', default=False)
-
+    parser.add_argument('--rnn_type', type=str, default='RNN', help='RNN type, options: [RNN, LSTM, GRU]')
     # inputation task
     parser.add_argument('--mask_rate', type=float, default=0.25, help='mask ratio')
 
