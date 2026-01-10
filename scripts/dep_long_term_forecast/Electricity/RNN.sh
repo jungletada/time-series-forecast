@@ -1,53 +1,55 @@
 export CUDA_VISIBLE_DEVICES=0
-model_name=TCN
+model_name=RNN
+rnn_type=RNN
+d_model=64
+e_layers=3
+dropout=0.1
+features=S
 dataset=Electricity_dep
-seq_len=96
-d_model=32
-e_layers=4
 pred_lens=(96 192 336 720)
-mnn=mlp
-
 
 for i in "${!pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 1 \
         --data_name $dataset \
-        --model_id ECL_$seq_len'_'${pred_lens[$i]} \
+        --model_id $dataset_96_$pred_len \
         --model $model_name \
-        --seq_len $seq_len \
+        --features $features \
+        --seq_len 96 \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
-        --features S \
+        --pred_len $pred_len \
         --d_model $d_model \
+        --rnn_type $rnn_type \
         --e_layers $e_layers \
+        --dropout $dropout \
         --des 'Exp' \
-        --itr 1 \
-        --learning_rate 0.002 \
+        --batch_size 32 \
+        --learning_rate 0.001 \
         --train_epochs 10 \
-        --patience 10 \
-        --batch_size 128
+        --patience 5 \
+        --itr 1
 
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 0 \
         --use_mnn 1 \
-        --mnn $mnn \
+        --mnn mlp \
         --data_name $dataset \
-        --model_id ECL_$seq_len'_'${pred_lens[$i]} \
+        --model_id $dataset_96_$pred_len \
         --model $model_name \
-        --seq_len $seq_len \
+        --features $features \
+        --seq_len 96 \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
-        --features S \
+        --pred_len $pred_len \
         --d_model $d_model \
+        --rnn_type $rnn_type \
         --e_layers $e_layers \
+        --dropout $dropout \
         --des 'Exp' \
+        --batch_size 32 \
+        --learning_rate 0.001 \
+        --train_epochs 10 \
+        --patience 5 \
         --itr 1
 done

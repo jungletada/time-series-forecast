@@ -3,7 +3,7 @@ export CUDA_VISIBLE_DEVICES=0
 d_model=36
 e_layers=4
 pred_lens=(96 192 336 720)
-dataset=Electricity
+dataset=Weather
 # Loop over datasets and prediction lengths
 for pred_len in "${pred_lens[@]}"; do
   python -u run.py \

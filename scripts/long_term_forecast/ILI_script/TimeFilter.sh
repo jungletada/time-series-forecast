@@ -6,10 +6,6 @@ d_ff=(512 512 512 512)
 dropout=(0.3 0.3 0.3 0.3)
 patch_len=(8 8 8 8)
 
-# For MS, M:
-#   --enc_in 7 \ 
-#   --dec_in 7 \  
-#   --c_out 7 \
 
 for i in "${!pred_lens[@]}"; do
     python -u run.py \

@@ -5,7 +5,7 @@ e_layers=4
 pred_lens=(24 36 48 60)
 
 # Loop over datasets and prediction lengths
-for i in "${!pred_lens[@]}"; do
+for pred_len in "${pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
     --is_training 1 \
@@ -13,12 +13,9 @@ for i in "${!pred_lens[@]}"; do
     --model_id Ill_36_${pred_lens[$i]} \
     --model TCN \
     --features S \
-    --target OT \
     --seq_len 36 \
     --label_len 0 \
-    --pred_len ${pred_lens[$i]} \
-    --enc_in 1 \
-    --c_out 1 \
+    --pred_len $pred_len \
     --d_model $d_model \
     --e_layers $e_layers \
     --des 'Exp' \
