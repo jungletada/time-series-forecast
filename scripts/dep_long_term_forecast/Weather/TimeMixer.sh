@@ -8,9 +8,9 @@ down_sampling_layers=3
 down_sampling_window=2
 learning_rate=0.01
 d_model=16
-d_ff=32
+d_ff=512
 batch_size=32
-train_epochs=20
+train_epochs=10
 patience=10
 pred_lens=(96 192 336 720)
 
@@ -20,13 +20,8 @@ python -u run_dep.py \
   --task_name long_term_forecast \
   --data_name Weather_dep \
   --is_training 1 \
-  --model_id Weather_dep_96_${pred_lens[$i]} \
   --model $model_name \
   --features S \
-  --target OT \
-  --enc_in 1 \
-  --dec_in 1 \
-  --c_out 1 \
   --seq_len $seq_len \
   --label_len 0 \
   --pred_len ${pred_lens[$i]} \
@@ -54,13 +49,8 @@ python -u run_dep.py \
   --is_training 0 \
   --use_mnn 1 \
   --mnn mlp \
-  --model_id Weather_dep_96_${pred_lens[$i]} \
   --model $model_name \
   --features S \
-  --target OT \
-  --enc_in 1 \
-  --dec_in 1 \
-  --c_out 1 \
   --seq_len $seq_len \
   --label_len 0 \
   --pred_len ${pred_lens[$i]} \

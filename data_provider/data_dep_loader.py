@@ -376,7 +376,7 @@ class Dataset_Custom_Decomposed(Dataset):
         # 严格对齐检查
         if len(data_npy) != (end_idx - start_idx):
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
-            print(f"Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}).")
+            print(f"!!!!!!!!!!!!!!!!! Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}).")
             exit(0)
 
         df_stamp = df_raw[['date']][start_idx:end_idx]
@@ -394,7 +394,7 @@ class Dataset_Custom_Decomposed(Dataset):
 
         # 4. 合并分量 (Merge Components)
         T, C, N_IMFS = data_npy.shape
-        data_processed = merge_components(data_npy, None)
+        data_processed = merge_components(data_npy, self.k)
         print(f">>>>>>>>>>>>> data_processed.shape: {data_processed.shape}")
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:

@@ -1,26 +1,21 @@
-#export CUDA_VISIBLE_DEVICES=0
-e_layers=3
-down_sampling_layers=3
-down_sampling_window=2
 learning_rate=0.01
 d_model=16
-d_ff=32
+d_ff=512
+e_layers=3
 seq_len=32
 batch_size=32
-train_epochs=20
-patience=10
+train_epochs=10
+patience=5
+down_sampling_layers=3
+down_sampling_window=2
 pred_lens=(24 36 48 60)
-# For MS, M:
-#   --enc_in 7 \
-#   --dec_in 7 \
-#   --c_out 7 \
+
 
 for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Illness_dep \
-    --model_id Illness_dep_32_${pred_lens[$i]} \
     --model TimeMixer \
     --features S \
     --target OT \
@@ -53,7 +48,6 @@ for i in "${!pred_lens[@]}"; do
     --use_mnn 1 \
     --mnn mlp \
     --data_name Illness_dep \
-    --model_id Illness_dep_$seq_len'_'${pred_lens[$i]} \
     --model TimeMixer \
     --features S \
     --target OT \

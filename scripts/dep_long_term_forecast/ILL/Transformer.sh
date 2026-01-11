@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=0
 model_name=Transformer
 dataset=Illness_dep
-pred_lens=(96 192 336 720)
+pred_lens=(24 36 48 60)
 features=S
 
 for pred_len in "${pred_lens[@]}"; do
@@ -12,8 +12,8 @@ for pred_len in "${pred_lens[@]}"; do
     --data_name $dataset \
     --model $model_name \
     --features $features \
-    --seq_len 96 \
-    --label_len 48 \
+    --seq_len 36 \
+    --label_len 18 \
     --pred_len $pred_len \
     --e_layers 2 \
     --d_layers 1 \
@@ -34,8 +34,8 @@ for pred_len in "${pred_lens[@]}"; do
     --data_name $dataset \
     --model $model_name \
     --features $features \
-    --seq_len 96 \
-    --label_len 48 \
+    --seq_len 36  \
+    --label_len 18 \
     --pred_len $pred_len \
     --e_layers 2 \
     --d_layers 1 \

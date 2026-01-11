@@ -46,8 +46,5 @@ for pred_len in "${pred_lens[@]}"; do
         --dropout $dropout \
         --des 'Exp' \
         --batch_size 32 \
-        --learning_rate 0.001 \
-        --train_epochs 10 \
-        --patience 5 \
         --itr 1
 done
