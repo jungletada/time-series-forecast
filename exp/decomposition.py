@@ -180,6 +180,7 @@ class LongtermDecomposition:
 
     def _get_borders(self, total_len):
         num_train = int(total_len * 0.7)
+        num_train_cut = int(total_len * 0.35)
         num_test = int(total_len  * 0.2)
         num_val = total_len - num_train - num_test
 
@@ -194,6 +195,7 @@ class LongtermDecomposition:
                 'end':   [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
             }
         elif self.data_type == 'custom':
+            print(f"num_train: {num_train}, num_train_cut: {num_train_cut}, num_test: {num_test}, num_val: {num_val}")
             border = {
                 'start': [0, num_train - self.seq_len, total_len - num_test - self.seq_len],
                 'end':   [num_train, num_train + num_val, total_len]
@@ -418,8 +420,8 @@ def decompose_long_term_data(data_root, K_IMFS):
         (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
         (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
         (f'{data_root}/electricity', 'custom', 'electricity.csv'),
-        (f'{data_root}/weather', 'custom', 'weather.csv'),
         (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
+        (f'{data_root}/weather', 'custom', 'weather.csv'),
         (f'{data_root}/traffic', 'custom', 'traffic.csv'),
         ]
     seq_lens = [96, 192, 336, 720]
@@ -434,19 +436,19 @@ def decompose_long_term_data(data_root, K_IMFS):
                 seq_len=seq_len)
             decomposer.run()
     
-    ILL_DATA_LIST = [
-        (f'{data_root}/illness', 'custom', 'national_illness.csv'),
-    ]
-    seq_lens = [24, 36, 48, 60] 
-    for data_path, data_type, data_file in ILL_DATA_LIST:
-        for seq_len in seq_lens:
-            decomposer = LongtermDecomposition(
-                data_type=data_type,
-                root_path=data_path,
-                data_file=data_file,
-                max_imfs=K_IMFS,
-                seq_len=seq_len)
-            decomposer.run()
+    # ILL_DATA_LIST = [
+    #     (f'{data_root}/illness', 'custom', 'national_illness.csv'),
+    # ]
+    # seq_lens = [24, 36, 48, 60] 
+    # for data_path, data_type, data_file in ILL_DATA_LIST:
+    #     for seq_len in seq_lens:
+    #         decomposer = LongtermDecomposition(
+    #             data_type=data_type,
+    #             root_path=data_path,
+    #             data_file=data_file,
+    #             max_imfs=K_IMFS,
+    #             seq_len=seq_len)
+    #         decomposer.run()
  
 
 def decompose_short_term_data(data_root, K_IMFS):
@@ -471,14 +473,14 @@ def decompose_short_term_data(data_root, K_IMFS):
 if __name__ == "__main__":
     K_IMFS = 10
     data_root = 'dataset'
-    # decompose_long_term_data(data_root, K_IMFS)
+    decompose_long_term_data(data_root, K_IMFS)
     # decompose_short_term_data(data_root, K_IMFS)
-    for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
-        decomposer = ShortTermDecomposition(
-            data_type='PEMS', 
-            root_path=os.path.join(data_root, 'PEMS'),
-            data_file=data_file,
-            max_imfs=K_IMFS,
-            seq_len=96,
-            scale=False)
-        decomposer.run()
+    # for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
+    #     decomposer = ShortTermDecomposition(
+    #         data_type='PEMS', 
+    #         root_path=os.path.join(data_root, 'PEMS'),
+    #         data_file=data_file,
+    #         max_imfs=K_IMFS,
+    #         seq_len=96,
+    #         scale=False)
+    #     decomposer.run()

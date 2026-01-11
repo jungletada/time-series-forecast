@@ -18,20 +18,19 @@ warnings.filterwarnings('ignore')
 class Exp_Dep_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
         # 定义分量名称，用于日志打印
-        self.comp_names = ['High', 'Mid', 'Low']
-        self.num_components = len(self.comp_names)
+        # self.comp_names = ['High', 'Mid', 'Low']
 
         # 调用父类初始化
         super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
         self.logger = logger
-        self.logger.info(f'Initializing Exp_Dep_Long_Term_Forecast (Training K={self.num_components} Independent Models).')
-        self.logger.info(f'Number of components: {self.num_components}')
+        self.logger.info(f'Initializing Exp_Dep_Long_Term_Forecast (Training K={args.num_imf} Independent Models).')
+        self.logger.info(f'Number of components: {args.num_imf}')
 
     def _build_model(self):
-        # 覆盖父类方法：我们需要构建 3 个独立的模型
-        # 注意：这里假设 3 个模型使用相同的架构 (args.model)
+        # 覆盖父类方法：我们需要构建 k 个独立的模型
+        # 注意：这里假设 k 个模型使用相同的架构 (args.model)
         models = []
-        for i in range(self.num_components):
+        for i in range(self.args.num_imf):
             model = self.model_dict[self.args.model].Model(self.args).float()
             if self.args.use_multi_gpu and self.args.use_gpu:
                 model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -59,7 +58,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         """
         辅助函数：处理单个模型的 Forward
         """
-        # 数据已经是 [B, 3, T, C]，我们取对应的 model_idx 分量 -> [B, T, C]
+        # 数据已经是 [B, k, T, C]，我们取对应的 model_idx 分量 -> [B, T, C]
         b_x = batch_x[:, model_idx, :, :].float().to(self.device)
         b_y = batch_y[:, model_idx, :, :].float().to(self.device)
         
@@ -119,7 +118,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 batch_total_loss = 0
                 
                 # --- Independent Forward & Backward ---
-                for comp_idx in range(self.num_components):
+                for comp_idx in range(self.args.num_imf):
                     outputs, true_y = self._process_one_batch(
                         batch_x=batch_x, 
                         batch_y=batch_y, 
@@ -146,11 +145,11 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     for opt in model_optimizers:
                         opt.step()
 
-                train_loss.append(batch_total_loss / self.num_components)
+                train_loss.append(batch_total_loss / self.args.num_imf)
 
                 if (iter_step + 1) % self.args.print_freq == 0:
                     self.logger.info("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(
-                        iter_step + 1, epoch + 1, batch_total_loss / self.num_components))
+                        iter_step + 1, epoch + 1, batch_total_loss / self.args.num_imf))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - iter_step)
                     self.logger.info('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
@@ -194,8 +193,8 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
                 loss_sum = 0
-                # 对 3 个分量分别预测并计算 Loss
-                for comp_idx in range(self.num_components):
+                # 对 k 个分量分别预测并计算 Loss
+                for comp_idx in range(self.args.num_imf):
                     pred, true = self._process_one_batch(
                         batch_x, batch_y, batch_x_mark, batch_y_mark, comp_idx
                     )
@@ -203,7 +202,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     loss_sum += loss.item()
                 
                 # 记录平均 Loss (或者总 Loss)
-                total_loss.append(loss_sum / self.num_components)
+                total_loss.append(loss_sum / self.args.num_imf)
                 
         total_loss = np.average(total_loss)
         # 切换回 Train 模式
@@ -230,13 +229,13 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 
-                # 存储当前 Batch 的 3 个分量预测结果
+                # 存储当前 Batch 的 k 个分量预测结果
                 batch_preds_list = []
                 batch_trues_list = []
                 # --- Added Timing Start ---
                 start_time = time.time()
                 # --------------------------
-                for comp_idx in range(self.num_components):
+                for comp_idx in range(self.args.num_imf):
                     # 获取单分量预测
                     outputs, true_y = self._process_one_batch(
                         batch_x, batch_y, batch_x_mark, batch_y_mark, comp_idx
@@ -246,7 +245,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     batch_trues_list.append(true_y.detach().cpu().numpy())
                 
                 # --- 核心：聚合 (Aggregation) ---
-                # 将 3 个分量相加 -> 还原为归一化的原始信号
+                # 将 k 个分量相加 -> 还原为归一化的原始信号
                 # [B, Pred_Len, C]
                 pred_sum = np.sum(batch_preds_list, axis=0) 
                 true_sum = np.sum(batch_trues_list, axis=0)
@@ -270,8 +269,8 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
                 # # 可视化 (Visual)
                 # if i % 20 == 0:
-                #     # 为了可视化 Input，我们也需要对 Input 的 3 分量求和
-                #     # Input: [B, 3, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
+                #     # 为了可视化 Input，我们也需要对 Input 的 k 分量求和
+                #     # Input: [B, k, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
                 #     input_x = batch_x.sum(dim=1).detach().cpu().numpy()
                     
                 #     if test_data.scale and self.args.inverse:

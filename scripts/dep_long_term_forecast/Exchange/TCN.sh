@@ -1,35 +1,21 @@
 export CUDA_VISIBLE_DEVICES=0
 d_model=32
 e_layers=4
+dataset=Exchange_dep
 pred_lens=(96 192 336 720)
+mnn=mlp
+seq_len=96
 
-mnn="mlp"
-if [[ $# -gt 0 ]]; then
-  case "$1" in
-    --mnn)
-      mnn="${2:?Missing value for --mnn}"
-      ;;
-    *)
-      echo "Usage: $0 [--mnn NAME]" >&2
-      exit 1
-      ;;
-  esac
-fi
-
-for i in "${!pred_lens[@]}"; do
+for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 1 \
-        --use_mnn 0 \
-        --data_name Exchange_dep \
-        --model_id Exchange_96_${pred_lens[$i]} \
+        --data_name $dataset \
+        --model_id $dataset'_'$seq_len'_'$pred_len \
         --model TCN \
-        --seq_len 96 \
+        --seq_len $seq_len \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
+        --pred_len $pred_len \
         --features S \
         --d_model $d_model \
         --e_layers $e_layers \
@@ -39,26 +25,21 @@ for i in "${!pred_lens[@]}"; do
         --train_epochs 10 \
         --patience 10 \
         --batch_size 32
-done
 
-
-for i in "${!pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 0 \
         --use_mnn 1 \
-        --data_name Exchange_dep \
-        --model_id Exchange_96_${pred_lens[$i]} \
+        --mnn $mnn \
+        --data_name $dataset \
+        --model_id $dataset'_'$seq_len'_'$pred_len \
         --model TCN \
-        --seq_len 96 \
+        --seq_len $seq_len \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
+        --pred_len $pred_len \
         --features S \
         --d_model $d_model \
         --e_layers $e_layers \
         --des 'Exp' \
-        --itr 1 
+        --itr 1
 done

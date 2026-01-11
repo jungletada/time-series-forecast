@@ -11,7 +11,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name ETTh1 \
-    --model_id ETTh1_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -34,7 +33,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name ETTh2 \
-    --model_id ETTh2_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -57,7 +55,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name ETTm1 \
-    --model_id ETTm1_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -80,7 +77,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name ETTm2 \
-    --model_id ETTm2_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \

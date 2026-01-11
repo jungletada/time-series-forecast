@@ -13,6 +13,10 @@ warnings.filterwarnings('ignore')
 
 def merge_components(data_npy, k):
     """合并分量 (Merge Components)"""
+
+    if k is None:
+        return data_npy
+    
     T, C, N_IMFS = data_npy.shape
     # 确保 k 不越界
     k = min(k, N_IMFS - 1)
@@ -187,30 +191,18 @@ class Dataset_ETT_Decomposed(Dataset):
         k = self.k
         T, C, N_IMFS = data_npy.shape
         data_processed = merge_components(data_npy, self.k)
-        # # 确保 k 不越界
-        # k = min(k, N_IMFS - 1)
         
-        # # Comp 1: High Freq (0 to k-1)
-        # comp1 = np.sum(data_npy[:, :, :k], axis=-1) if k > 0 else np.zeros((T, C))
-        # # Comp 2: Mid Freq (k)
-        # comp2 = data_npy[:, :, k]
-        # # Comp 3: Low Freq (k+1 to end)
-        # comp3 = np.sum(data_npy[:, :, k+1:], axis=-1) if k+1 < N_IMFS else np.zeros((T, C))
-        
-        # # Stack -> [T, C, 3]
-        # data_processed = np.stack([comp1, comp2, comp3], axis=-1)
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"
             mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            print(f"Loading MNN data from {mnn_npy_path}")
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
+            print(f">>>>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
             assert data_mnn.shape[0] == data_processed.shape[0]
             length, num_channels, num_imfs = data_processed.shape
             data_pad = np.zeros((length, num_channels-1, num_imfs))
             data_processed = np.concatenate([data_pad, data_mnn], axis=1)
-            # data_processed[:, self.target_idx - 1, :] = data_mnn[:, 0, :]
-
+            
         # 5. 标准化 (Scaling)
         if self.scale:
             # 加载 Train 数据计算 Mean/Std
@@ -237,18 +229,18 @@ class Dataset_ETT_Decomposed(Dataset):
             data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
             
             # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:3] = (data_processed[:, :, 2:3] - mean_) / scale
+            data_processed[:, :, 2:] = (data_processed[:, :, 2:] - mean_) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
-        # 这里为了保持 __getitem__ 方便，我们先存为 [3, T, C]
-        self.data_x = data_processed.transpose(2, 0, 1) # [3, T, C]
-        self.data_y = data_processed.transpose(2, 0, 1) # [3, T, C]
+        # 这里为了保持 __getitem__ 方便，我们先存为 [K, T, C]
+        self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
+        self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_stamp = data_stamp
 
         # Augmentation (仅对 Train 有效)
         if self.set_type == 0 and self.args.augmentation_ratio > 0:
-            # 注意：augmentation 库通常期望输入是 [T, C]，这里是 [3, T, C]
+            # 注意：augmentation 库通常期望输入是 [T, C]，这里是 [K, T, C]
             # 直接调用可能会报错，取决于 utils.augmentation 的实现。
             # 这里建议先忽略，或者需要对每一层分别做 augmentation
             pass 
@@ -259,7 +251,7 @@ class Dataset_ETT_Decomposed(Dataset):
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
-        # self.data_x: [3, T, C]
+        # self.data_x: [K, T, C]
         # 保持第一维 (Component) 不变，切片第二维 (Time)
         seq_x = self.data_x[:, s_begin:s_end, :] 
         seq_y = self.data_y[:, r_begin:r_end, :]
@@ -275,10 +267,10 @@ class Dataset_ETT_Decomposed(Dataset):
 
     def inverse_transform(self, data):
         """
-        data: [Batch, 3, T, C] 或者 [Batch, T, C] (如果模型已经求和了)
+        data: [Batch, K, T, C] 或者 [Batch, T, C] (如果模型已经求和了)
         """
         # 如果输入是分开的 3 个分量，先求和
-        if data.ndim == 4 and data.shape[1] == 3:
+        if data.ndim == 4:
             data = data.sum(dim=1) # [Batch, T, C]
             
         # 调用 scaler 还原
@@ -308,7 +300,6 @@ class Dataset_Custom_Decomposed(Dataset):
             self.test_mnn = False
         self.k = getattr(self.args, 'selected_k', 2) 
         
-        self.split_ratio = (0.7, 0.2)
         # info
         self.seq_len = size[0]
         self.label_len = size[1]
@@ -353,11 +344,12 @@ class Dataset_Custom_Decomposed(Dataset):
         # 2. 读取 CSV 以获取特征索引和时间戳
         csv_path = os.path.join(self.root_path, self.data_path)
         df_raw = pd.read_csv(csv_path)
-        num_train = int(len(df_raw) * 0.7)
+        num_train = int(len(df_raw) * 0.7) 
+        num_train_cut = int(len(df_raw) * 0.35) # 0.7 -> 0.35
         num_test = int(len(df_raw)  * 0.2)
         num_vali = len(df_raw) - num_train - num_test
         self.borders = {
-            'start': [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len],
+            'start': [0,         num_train - self.seq_len, len(df_raw) - num_test - self.seq_len],
             'end':   [num_train, num_train + num_vali, len(df_raw)]
         }
         # --- Feature Selection (S or M) ---
@@ -402,20 +394,15 @@ class Dataset_Custom_Decomposed(Dataset):
 
         # 4. 合并分量 (Merge Components)
         T, C, N_IMFS = data_npy.shape
-        data_processed = merge_components(data_npy, self.k)
-  
+        data_processed = merge_components(data_npy, None)
+        print(f">>>>>>>>>>>>> data_processed.shape: {data_processed.shape}")
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"
             mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            print(f"Loading MNN data from {mnn_npy_path}")
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
+            print(f">>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
             assert data_mnn.shape[0] == data_processed.shape[0]
-            # print(f"data_mnn.shape: {data_mnn.shape}")
-            # print(f"data_processed.shape: {data_processed.shape}")
-            # length, num_channels, num_imfs = data_processed.shape
-            # data_pad = np.zeros((length, num_channels-1, num_imfs))
-            # data_processed = np.concatenate([data_pad, data_mnn], axis=1)
             data_processed = data_mnn
 
         # 5. 标准化 (Scaling)
@@ -444,7 +431,7 @@ class Dataset_Custom_Decomposed(Dataset):
             data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
             
             # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:3] = (data_processed[:, :, 2:3] - mean) / scale
+            data_processed[:, :, 2:] = (data_processed[:, :, 2:] - mean) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
@@ -482,10 +469,10 @@ class Dataset_Custom_Decomposed(Dataset):
 
     def inverse_transform(self, data):
         """
-        data: [Batch, 3, T, C] 或者 [Batch, T, C] (如果模型已经求和了)
+        data: [Batch, K, T, C] 或者 [Batch, T, C] (如果模型已经求和了)
         """
-        # 如果输入是分开的 3 个分量，先求和
-        if data.ndim == 4 and data.shape[1] == 3:
+        # 如果输入是分开的 K 个分量，先求和
+        if data.ndim == 4: # and data.shape[1] == 3:
             data = data.sum(dim=1) # [Batch, T, C]
             
         # 调用 scaler 还原
@@ -577,7 +564,7 @@ class Dataset_PEMS_Decomposed(Dataset):
             suffix = "_smoothed"
             mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
             print(f">>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, 3)
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
             assert data_mnn.shape[0] == data_processed.shape[0]
             data_processed = data_mnn.copy()
             # length, num_channels, num_imfs = data_processed.shape
@@ -605,12 +592,12 @@ class Dataset_PEMS_Decomposed(Dataset):
             # 1. High Freq & Mid Freq: 仅除以 scale (假设它们是围绕0波动的)
             data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
             # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:3] = (data_processed[:, :, 2:3] - mean) / scale
+            data_processed[:, :, 2:] = (data_processed[:, :, 2:] - mean) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
-        self.data_x = data_processed.transpose(2, 0, 1) # [3, T, C]
-        self.data_y = data_processed.transpose(2, 0, 1) # [3, T, C]
+        self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
+        self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
         
     def __getitem__(self, index):
         if self.set_type == 2:

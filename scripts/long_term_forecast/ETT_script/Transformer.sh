@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+
 model_name=Transformer
 pred_lens=(96 192 336 720)
 features=S
@@ -10,7 +10,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $data_name \
-    --model_id $data_name'_'96'_'$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -34,7 +33,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $data_name \
-    --model_id $data_name'_'96'_'$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -57,7 +55,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $data_name \
-    --model_id $data_name'_'96'_'$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -80,7 +77,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $data_name \
-    --model_id $data_name'_'96'_'$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \

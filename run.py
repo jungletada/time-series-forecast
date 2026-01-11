@@ -22,7 +22,7 @@ def get_args():
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
-    parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
+    parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
 

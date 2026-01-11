@@ -101,8 +101,3 @@ PEMS08_dep:
   selected_k: 3
   channels: 170
   target: 9
-
-# M4_dep:
-#   data_type: M4_dep
-#   root_path: dataset/m4/
-#   selected_k: 3

@@ -8,19 +8,16 @@ pred_lens=(96 192 336 720)
 mnn=mlp
 
 
-for i in "${!pred_lens[@]}"; do
+for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 1 \
         --data_name $dataset \
-        --model_id ECL_$seq_len'_'${pred_lens[$i]} \
+        --model_id ECL_$seq_len'_'$pred_len \
         --model $model_name \
         --seq_len $seq_len \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
+        --pred_len $pred_len \
         --features S \
         --d_model $d_model \
         --e_layers $e_layers \
@@ -37,14 +34,11 @@ for i in "${!pred_lens[@]}"; do
         --use_mnn 1 \
         --mnn $mnn \
         --data_name $dataset \
-        --model_id ECL_$seq_len'_'${pred_lens[$i]} \
+        --model_id ECL_$seq_len'_'$pred_len \
         --model $model_name \
         --seq_len $seq_len \
         --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --enc_in 1 \
-        --c_out 1 \
-        --target OT \
+        --pred_len $pred_len \
         --features S \
         --d_model $d_model \
         --e_layers $e_layers \

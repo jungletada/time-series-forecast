@@ -8,12 +8,11 @@ features=S
 dataset=Exchange_dep
 pred_lens=(96 192 336 720)
 
-for i in "${!pred_lens[@]}"; do
+for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 1 \
         --data_name $dataset \
-        --model_id $dataset_96_$pred_len \
         --model $model_name \
         --features $features \
         --seq_len 96 \
@@ -36,7 +35,6 @@ for i in "${!pred_lens[@]}"; do
         --use_mnn 1 \
         --mnn mlp \
         --data_name $dataset \
-        --model_id $dataset_96_$pred_len \
         --model $model_name \
         --features $features \
         --seq_len 96 \

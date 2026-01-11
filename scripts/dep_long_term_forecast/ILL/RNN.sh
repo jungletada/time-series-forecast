@@ -8,12 +8,11 @@ features=S
 dataset=Illness_dep
 pred_lens=(24 36 48 60)
 
-for i in "${!pred_lens[@]}"; do
+for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 1 \
         --data_name $dataset \
-        --model_id $dataset_96_$pred_len \
         --model $model_name \
         --features $features \
         --seq_len 36 \
@@ -36,7 +35,6 @@ for i in "${!pred_lens[@]}"; do
         --use_mnn 1 \
         --mnn mlp \
         --data_name $dataset \
-        --model_id $dataset_96_$pred_len \
         --model $model_name \
         --features $features \
         --seq_len 36 \

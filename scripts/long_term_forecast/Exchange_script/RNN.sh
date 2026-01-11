@@ -11,7 +11,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Exchange \
-    --model_id Exchange_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \

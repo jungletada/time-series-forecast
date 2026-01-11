@@ -1,5 +1,3 @@
-export CUDA_VISIBLE_DEVICES=5
-
 model_name=Transformer
 pred_lens=(96 192 336 720)
 features=S
@@ -9,7 +7,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name Traffic \
-    --model_id Traffic_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \

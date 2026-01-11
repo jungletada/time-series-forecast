@@ -10,7 +10,6 @@ for pred_len in "${pred_lens[@]}"; do
     --seed 5566 \
     --is_training 1 \
     --data_name $dataset \
-    --model_id $dataset_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -33,7 +32,6 @@ for pred_len in "${pred_lens[@]}"; do
     --use_mnn 1 \
     --mnn mlp \
     --data_name $dataset \
-    --model_id $dataset_96_$pred_len \
     --model $model_name \
     --features $features \
     --seq_len 96 \

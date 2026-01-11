@@ -20,7 +20,8 @@ def get_args():
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
     parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
-    parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
+    parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
+    parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
     # data loader
