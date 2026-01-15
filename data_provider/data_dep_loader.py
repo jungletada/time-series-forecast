@@ -33,12 +33,21 @@ def merge_components(data_npy, k):
         comp1 = np.sum(data_npy[:, :, :N_IMFS - 2], axis=-1)
         comp2 = data_npy[:, :, N_IMFS - 2]
         comp3 = data_npy[:, :, N_IMFS - 1]
-    # Stack -> [T, C, 3]
-    # comp1 = data_npy[:, :, 0]
-    # comp2 = data_npy[:, :, 1]
-    # comp3 = data_npy[:, :, 2]
+    
     data_processed = np.stack([comp1, comp2, comp3], axis=-1)
     
+    return data_processed
+
+
+def split_residual(data_npy, data_processed):
+    """Ablation Split residual signal from the processed data"""
+    T, C, N_IMFS = data_npy.shape
+    print(f"data_processed.shape: {data_processed.shape}")
+    print(f"data_npy.shape: {data_npy.shape}")
+    raw_signal = data_npy.sum(axis=-1)
+    print(f"raw_signal.shape: {raw_signal.shape}")
+    high_freq = raw_signal - data_processed[:, :, 1] - data_processed[:, :, 2]
+    data_processed[:, :, 0] = high_freq
     return data_processed
 
 class Dataset_ETT_Decomposed(Dataset):
@@ -112,17 +121,19 @@ class Dataset_ETT_Decomposed(Dataset):
         # 1. 构造文件名 (确保 decomposition.py 生成的文件名包含 _cd)
         fname_map = {0: 'train', 1: 'val', 2: 'test'}
         current_flag_name = fname_map[self.set_type]
-        # 尝试加载带 seq_len 的文件名 (更安全)，如果找不到则加载默认的
         npy_path = os.path.join(self.root_path, f"{base_name}_{current_flag_name}_sl{self.seq_len}_cd.npy")
-        
+        pred_train_npy_path = os.path.join(self.root_path, f"pred_{base_name}_train_sl{self.seq_len}_cd.npy")
         if os.path.exists(npy_path):
             data_npy = np.load(npy_path)
         else:
             raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}")
-
+        
+        if os.path.exists(pred_train_npy_path) and self.set_type == 0:
+            print(f">>>>>>>>>>>>>>>>Loaded predicted data from {pred_train_npy_path}")
+            data_pred_npy = np.load(pred_train_npy_path)
+        else:
+            data_pred_npy = None
         # data_npy Shape: [T, C, K_IMFS]
-        # 注意：这里的 data_npy 已经是切分好的片段，不要再做时间切片！
-
         # 2. 读取 CSV 以获取特征索引和时间戳
         csv_path = os.path.join(self.root_path, self.data_path)
         df_raw = pd.read_csv(csv_path)
@@ -145,7 +156,8 @@ class Dataset_ETT_Decomposed(Dataset):
         # 从 NPY 中筛选特征
         # data_npy: [T, Total_Channels, K] -> [T, Selected_Channels, K]
         data_npy = data_npy[:, target_indices, :]
-
+        if data_pred_npy is not None and self.set_type == 0:
+            data_pred_npy = data_pred_npy[:, target_indices, :]
         # 3. 处理时间戳 (Time Stamp), CSV 是全量的，需要切片
         start_idx = self.borders['start'][self.set_type]
         end_idx = self.borders['end'][self.set_type]
@@ -155,9 +167,6 @@ class Dataset_ETT_Decomposed(Dataset):
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
             print(f"Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}). Truncating to shorter one.")
             exit(0)
-            # min_len = min(len(data_npy), end_idx - start_idx)
-            # data_npy = data_npy[:min_len]
-            # end_idx = start_idx + min_len
 
         df_stamp = df_raw[['date']][start_idx:end_idx]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
@@ -190,19 +199,33 @@ class Dataset_ETT_Decomposed(Dataset):
         # data_npy is [T, C, K_IMFS]
         k = self.k
         T, C, N_IMFS = data_npy.shape
+
+        # if data_pred_npy is not None and self.set_type == 0:
+        #     data_processed = data_pred_npy.reshape(-1, 1, 3)
+        #     print(f">>>>>>>>>>>>>>>> Data processed from {pred_train_npy_path}, with shape {data_processed.shape}")
+        # else:
+
         data_processed = merge_components(data_npy, self.k)
+        print(f">>>>>>>>>>>>>>>> Data processed from {npy_path}, with shape {data_processed.shape}")
+        # data_processed = split_residual(data_npy, data_processed)
+        # print(f">>>>>>>>>>>>>>>> Residual data processed from {npy_path}, with shape {data_processed.shape}")
         
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"
             mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            print(f">>>>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
-            assert data_mnn.shape[0] == data_processed.shape[0]
-            length, num_channels, num_imfs = data_processed.shape
-            data_pad = np.zeros((length, num_channels-1, num_imfs))
-            data_processed = np.concatenate([data_pad, data_mnn], axis=1)
+            original_test_npy_path = os.path.join(self.root_path, f"{base_name}_test_sl{self.seq_len}_cd.npy")
             
+            print(f">>>>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
+            # original_test_npy = np.load(original_test_npy_path)
+            # original_test_npy = original_test_npy[:, target_indices, :]
+            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
+            # test_residual = split_residual(original_test_npy, data_mnn)
+            
+            assert data_mnn.shape[0] == data_processed.shape[0]
+            data_processed = data_mnn
+            # print(f">>>>>>>>>>>>>>>> Test residual data processed from {mnn_npy_path}, with shape {test_residual.shape}")
+            # data_processed = test_residual
         # 5. 标准化 (Scaling)
         if self.scale:
             # 加载 Train 数据计算 Mean/Std
@@ -238,12 +261,6 @@ class Dataset_ETT_Decomposed(Dataset):
         self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_stamp = data_stamp
 
-        # Augmentation (仅对 Train 有效)
-        if self.set_type == 0 and self.args.augmentation_ratio > 0:
-            # 注意：augmentation 库通常期望输入是 [T, C]，这里是 [K, T, C]
-            # 直接调用可能会报错，取决于 utils.augmentation 的实现。
-            # 这里建议先忽略，或者需要对每一层分别做 augmentation
-            pass 
 
     def __getitem__(self, index):
         s_begin = index
@@ -376,7 +393,7 @@ class Dataset_Custom_Decomposed(Dataset):
         # 严格对齐检查
         if len(data_npy) != (end_idx - start_idx):
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
-            print(f"!!!!!!!!!!!!!!!!! Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}).")
+            print(f"!!!!!!!!!!!  Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}).")
             exit(0)
 
         df_stamp = df_raw[['date']][start_idx:end_idx]
@@ -394,16 +411,27 @@ class Dataset_Custom_Decomposed(Dataset):
 
         # 4. 合并分量 (Merge Components)
         T, C, N_IMFS = data_npy.shape
-        data_processed = merge_components(data_npy, self.k)
+        k = None if self.args.num_imf == 10 else self.k
+        data_processed = merge_components(data_npy, k)
         print(f">>>>>>>>>>>>> data_processed.shape: {data_processed.shape}")
+        # data_processed = split_residual(data_npy, data_processed)
+        # print(f">>>>>>>>>>>>> data_processed.shape: {data_processed.shape}")
         # load mnn data for test
         if self.set_type == 2 and self.test_mnn:
             suffix = "_smoothed"
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            print(f">>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
+            prefix = "all" if k is None else "pred"
+            mnn_npy_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+            original_test_npy_path = os.path.join(self.root_path, f"{base_name}_test_sl{self.seq_len}_cd.npy")
+            # print(f">>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
+            # original_test_npy = np.load(original_test_npy_path)
+            # original_test_npy = original_test_npy[:, target_indices, :]
             data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
+            # test_residual = split_residual(original_test_npy, data_mnn)
+            
             assert data_mnn.shape[0] == data_processed.shape[0]
             data_processed = data_mnn
+            # print(f">>>>>>>>>>>>>>>> Test residual data processed from {mnn_npy_path}, with shape {test_residual.shape}")
+            # data_processed = test_residual
 
         # 5. 标准化 (Scaling)
         if self.scale:
@@ -436,13 +464,13 @@ class Dataset_Custom_Decomposed(Dataset):
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
         # 这里为了保持 __getitem__ 方便，我们先存为 [3, T, C]
-        self.data_x = data_processed.transpose(2, 0, 1) # [3, T, C]
-        self.data_y = data_processed.transpose(2, 0, 1) # [3, T, C]
+        self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
+        self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_stamp = data_stamp
 
         # Augmentation (仅对 Train 有效)
         if self.set_type == 0 and self.args.augmentation_ratio > 0:
-            # 注意：augmentation 库通常期望输入是 [T, C]，这里是 [3, T, C]
+            # 注意：augmentation 库通常期望输入是 [T, C]，这里是 [K, T, C]
             # 直接调用可能会报错，取决于 utils.augmentation 的实现。
             # 这里建议先忽略，或者需要对每一层分别做 augmentation
             pass 
@@ -453,7 +481,7 @@ class Dataset_Custom_Decomposed(Dataset):
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
-        # self.data_x: [3, T, C]
+        # self.data_x: [K, T, C]
         # 保持第一维 (Component) 不变，切片第二维 (Time)
         seq_x = self.data_x[:, s_begin:s_end, :] 
         seq_y = self.data_y[:, r_begin:r_end, :]

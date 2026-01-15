@@ -24,7 +24,6 @@ for i in "${!pred_lens[@]}"; do
         --task_name long_term_forecast \
         --is_training 1 \
         --data_name $dataset \
-        --model_id ETTh1_$seq_len'_'${pred_lens[$i]} \
         --features S \
         --model $model_name \
         --seq_len $seq_len \
@@ -45,7 +44,6 @@ for i in "${!pred_lens[@]}"; do
         --use_mnn 1 \
         --mnn $mnn \
         --data_name $dataset \
-        --model_id ETTh1_$seq_len'_'${pred_lens[$i]} \
         --model $model_name \
         --features S \
         --seq_len $seq_len \

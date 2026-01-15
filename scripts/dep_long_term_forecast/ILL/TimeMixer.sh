@@ -1,11 +1,14 @@
-learning_rate=0.01
+model_name=TimeMixer
+data_name=Illness_dep
+
 d_model=16
-d_ff=512
+d_ff=16
 e_layers=3
-seq_len=32
-batch_size=32
+seq_len=36
+batch_size=128
 train_epochs=10
 patience=5
+learning_rate=0.01
 down_sampling_layers=3
 down_sampling_window=2
 pred_lens=(24 36 48 60)
@@ -15,13 +18,9 @@ for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 1 \
-    --data_name Illness_dep \
-    --model TimeMixer \
+    --data_name $data_name \
+    --model $model_name \
     --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
     --seq_len $seq_len \
     --label_len 0 \
     --pred_len ${pred_lens[$i]} \
@@ -39,21 +38,15 @@ for i in "${!pred_lens[@]}"; do
     --down_sampling_method avg \
     --down_sampling_layers $down_sampling_layers \
     --down_sampling_window $down_sampling_window
-done
 
-for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 0 \
     --use_mnn 1 \
     --mnn mlp \
-    --data_name Illness_dep \
-    --model TimeMixer \
+    --data_name $data_name \
+    --model $model_name \
     --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
     --seq_len $seq_len \
     --label_len 0 \
     --pred_len ${pred_lens[$i]} \

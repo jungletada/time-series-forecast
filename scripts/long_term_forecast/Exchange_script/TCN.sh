@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=0
 
-d_model=36
+d_model=32
 e_layers=4
 pred_lens=(96 192 336 720)
 dataset=Exchange
@@ -10,7 +10,6 @@ for pred_len in "${pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name $dataset \
-    --model_id $dataset_96_$pred_len \
     --model TCN \
     --features S \
     --seq_len 96 \
@@ -20,8 +19,8 @@ for pred_len in "${pred_lens[@]}"; do
     --e_layers $e_layers \
     --des 'Exp' \
     --itr 1 \
-    --learning_rate 0.005 \
+    --learning_rate 0.0001 \
     --train_epochs 10 \
-    --patience 10 \
-    --batch_size 16
+    --patience 3 \
+    --batch_size 32
 done

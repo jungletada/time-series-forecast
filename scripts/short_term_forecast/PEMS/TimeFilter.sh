@@ -1,7 +1,7 @@
 model_name=TimeFilter
 seq_len=96
-pred_lens=(12 24 48)
 features=S
+pred_lens=(12 24 48)
 
 for i in "${!pred_lens[@]}"; do
     python -u run.py \
@@ -9,7 +9,6 @@ for i in "${!pred_lens[@]}"; do
     --seed 5566 \
     --is_training 1 \
     --data_name PEMS03 \
-    --model_id PEMS03_96_${pred_lens[$i]} \
     --model $model_name \
     --features $features \
     --seq_len 96 \
@@ -33,7 +32,6 @@ for i in "${!pred_lens[@]}"; do
     --seed 5566 \
     --is_training 1 \
     --data_name PEMS04 \
-    --model_id PEMS04_96_${pred_lens[$i]} \
     --model $model_name \
     --features $features \
     --seq_len 96 \

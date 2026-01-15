@@ -1,7 +1,3 @@
-
-# Set the GPU to use
-export CUDA_VISIBLE_DEVICES=0
-
 seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.000242438 0.000201437 0.000132929 0.000239762)
@@ -26,12 +22,8 @@ for i in "${!pred_lens[@]}"; do
 		--task_name long_term_forecast \
 		--data_name Exchange_dep \
 		--is_training 1 \
-		--use_amp \
-		--model_id Exchange_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \
@@ -43,21 +35,14 @@ for i in "${!pred_lens[@]}"; do
 		--d_model ${d_models[$i]} \
 		--patch_len ${patch_lens[$i]} \
 		--dropout ${dropouts[$i]}
-done
 
-
-for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
 		--task_name long_term_forecast \
 		--data_name Exchange_dep \
 		--is_training 0 \
 		--use_mnn 1 \
-		--use_amp \
-		--model_id Exchange_dep_${seq_lens[$i]}_${pred_lens[$i]} \
 		--model WPMixer \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \

@@ -277,6 +277,46 @@ class Model(nn.Module):
                 out2_list.append(x_2)
             return (out1_list, out2_list)
 
+    # def __multi_scale_process_inputs(self, x_enc, x_mark_enc):
+    #     if self.configs.down_sampling_method == 'max':
+    #         down_pool = torch.nn.MaxPool1d(self.configs.down_sampling_window, return_indices=False)
+    #     elif self.configs.down_sampling_method == 'avg':
+    #         down_pool = torch.nn.AvgPool1d(self.configs.down_sampling_window)
+    #     elif self.configs.down_sampling_method == 'conv':
+    #         padding = 1 if torch.__version__ >= '1.5.0' else 2
+    #         down_pool = nn.Conv1d(in_channels=self.configs.enc_in, out_channels=self.configs.enc_in,
+    #                               kernel_size=3, padding=padding,
+    #                               stride=self.configs.down_sampling_window,
+    #                               padding_mode='circular',
+    #                               bias=False)
+    #     else:
+    #         return x_enc, x_mark_enc
+    #     # B,T,C -> B,C,T
+    #     x_enc = x_enc.permute(0, 2, 1)
+
+    #     x_enc_ori = x_enc
+    #     x_mark_enc_mark_ori = x_mark_enc
+
+    #     x_enc_sampling_list = []
+    #     x_mark_sampling_list = []
+    #     x_enc_sampling_list.append(x_enc.permute(0, 2, 1))
+    #     x_mark_sampling_list.append(x_mark_enc)
+
+    #     for i in range(self.configs.down_sampling_layers):
+    #         x_enc_sampling = down_pool(x_enc_ori)
+
+    #         x_enc_sampling_list.append(x_enc_sampling.permute(0, 2, 1))
+    #         x_enc_ori = x_enc_sampling
+
+    #         if x_mark_enc is not None:
+    #             x_mark_sampling_list.append(x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :])
+    #             x_mark_enc_mark_ori = x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :]
+
+    #     x_enc = x_enc_sampling_list
+    #     x_mark_enc = x_mark_sampling_list if x_mark_enc is not None else None
+
+    #     return x_enc, x_mark_enc
+
     def __multi_scale_process_inputs(self, x_enc, x_mark_enc):
         if self.configs.down_sampling_method == 'max':
             down_pool = torch.nn.MaxPool1d(self.configs.down_sampling_window, return_indices=False)
@@ -291,6 +331,7 @@ class Model(nn.Module):
                                   bias=False)
         else:
             return x_enc, x_mark_enc
+        
         # B,T,C -> B,C,T
         x_enc = x_enc.permute(0, 2, 1)
 
@@ -305,18 +346,27 @@ class Model(nn.Module):
         for i in range(self.configs.down_sampling_layers):
             x_enc_sampling = down_pool(x_enc_ori)
 
+            # --- 修改开始: 获取降采样后数据的实际长度 T ---
+            current_len = x_enc_sampling.shape[-1] 
             x_enc_sampling_list.append(x_enc_sampling.permute(0, 2, 1))
             x_enc_ori = x_enc_sampling
 
             if x_mark_enc is not None:
-                x_mark_sampling_list.append(x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :])
-                x_mark_enc_mark_ori = x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :]
+                # 先进行切片降采样
+                x_mark_sampled = x_mark_enc_mark_ori[:, ::self.configs.down_sampling_window, :]
+                # --- 修改核心: 强制截断 x_mark 以匹配 x_enc 的长度 ---
+                if x_mark_sampled.shape[1] > current_len:
+                    x_mark_sampled = x_mark_sampled[:, :current_len, :]
+                
+                x_mark_sampling_list.append(x_mark_sampled)
+                x_mark_enc_mark_ori = x_mark_sampled
+            # --- 修改结束 ---
 
         x_enc = x_enc_sampling_list
         x_mark_enc = x_mark_sampling_list if x_mark_enc is not None else None
 
         return x_enc, x_mark_enc
-
+    
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         x_enc, x_mark_enc = self.__multi_scale_process_inputs(x_enc, x_mark_enc)
         x_list = []
