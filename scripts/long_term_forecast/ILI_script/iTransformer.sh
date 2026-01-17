@@ -1,22 +1,14 @@
-export CUDA_VISIBLE_DEVICES=0
-# For MS, M:
-#   --enc_in 7 \ 
-#   --dec_in 7 \  
-#   --c_out 7 \   
-
+model_name=iTransformer
 pred_lens=(24 36 48 60)
+
 for i in "${!pred_lens[@]}"; do
 python -u run.py \
   --task_name long_term_forecast \
-  --is_training 1 \
+  --is_training 0 \
   --data_name Illness \
-  --model_id Ill_36_${pred_lens[$i]} \
-  --model iTransformer \
+  --model_id $model_name \
+  --model $model_name \
   --features S \
-  --target OT \
-  --enc_in 1 \
-  --dec_in 1 \
-  --c_out 1 \
   --seq_len 36 \
   --label_len 18 \
   --pred_len ${pred_lens[$i]} \
@@ -26,7 +18,7 @@ python -u run.py \
   --des 'Exp' \
   --d_model 512 \
   --d_ff 512 \
-  --batch_size 16 \
+  --batch_size 32 \
   --learning_rate 0.0005 \
   --itr 1
 done

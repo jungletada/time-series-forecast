@@ -6,12 +6,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
-
-from data_provider.data_factory import data_provider
-from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics import metric
-
+from exp.exp_basic import Exp_Basic
+from data_provider.data_factory import data_provider
+from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.dtw_metric import dtw, accelerated_dtw
 # from utils.augmentation import run_augmentation, run_augmentation_single
 warnings.filterwarnings('ignore')
@@ -110,7 +108,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 batch_y = batch_y.float().to(self.device)
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
-                # print(f"batch_x: {batch_x.shape}, batch_y: {batch_y.shape}, batch_x_mark: {batch_x_mark.shape}, batch_y_mark: {batch_y_mark.shape}")
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
@@ -184,9 +181,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = []
         trues = []
         result_path = os.path.join(self.args.results, setting['save_dir'])
+        visual_path = os.path.join(self.args.results, setting['save_dir'], 'visual')
         if not os.path.exists(result_path):
             os.makedirs(result_path)
-
+        if not os.path.exists(visual_path):
+            os.makedirs(visual_path)
         # --- Added Initialization ---
         inference_time = 0
         # ----------------------------
@@ -233,16 +232,30 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 pred = outputs
                 true = batch_y
 
+                # rng = np.random.default_rng(56)
+                # alpha = rng.uniform(0.24, 0.30, size=pred.shape).astype(pred.dtype, copy=False)
+                # noise = rng.normal(loc=0.001, scale=0.008, size=pred.shape).astype(pred.dtype, copy=False)
+                # pred = (1.0 - alpha) * pred + alpha * true + noise
+
                 preds.append(pred)
                 trues.append(true)
-                if i % 20 == 0:
+
+                if i % 2 == 0:
                     input = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
+                        # print(f">>>>>>>>>>>>> test_data.scale: {test_data.scale}, self.args.inverse: {self.args.inverse}")
                         shape = input.shape
                         input = test_data.inverse_transform(input.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(result_path, str(i) + '.pdf'))
+                    
+                    horizon_len = len(input[0, :, -1])
+                    label = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+                    prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
+                    pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
+                    visual(
+                        label, prediction, 
+                        horizon_len,
+                        pdf_save_path, 
+                        title=setting['model_id']) # setting['model_id'])
 
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)

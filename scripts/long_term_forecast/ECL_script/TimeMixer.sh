@@ -1,4 +1,3 @@
-#export CUDA_VISIBLE_DEVICES=0
 e_layers=3
 down_sampling_layers=3
 down_sampling_window=2
@@ -9,22 +8,15 @@ batch_size=32
 train_epochs=20
 patience=10
 pred_lens=(96 192 336 720)
-# For MS, M:
-#   --enc_in 321 \ 
-#   --dec_in 321 \  
-#   --c_out 321 \   
+ 
 for i in "${!pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
-    --is_training 1 \
+    --is_training 0 \
     --data_name Electricity \
-    --model_id ECL_96_${pred_lens[$i]} \
+    --model_id TimeMixer \
     --model TimeMixer \
     --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
     --seq_len 96 \
     --label_len 0 \
     --pred_len ${pred_lens[$i]} \

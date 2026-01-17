@@ -46,8 +46,9 @@ def load_data_config(args):
         args.enc_in = 1
         args.dec_in = 1
         args.c_out = 1
-    # args.seasonal_patterns = config.get('seasonal_patterns', None)
+    
     return args
+
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
@@ -67,7 +68,6 @@ def adjust_learning_rate(optimizer, epoch, args):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
         print('Updating learning rate to {}'.format(lr))
-
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
@@ -100,13 +100,11 @@ class EarlyStopping:
         torch.save(model.state_dict(), path + '/' + 'checkpoint.pth')
         self.val_loss_min = val_loss
 
-
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
 
 class StandardScaler():
     def __init__(self, mean, std):
@@ -119,17 +117,80 @@ class StandardScaler():
     def inverse_transform(self, data):
         return (data * self.std) + self.mean
 
-
-def visual(true, preds=None, name='./pic/test.pdf'):
+def visual(true, preds, horizon_len=None, name='./pic/test.pdf', title=None):
     """
     Results visualization
     """
-    plt.figure()
-    if preds is not None:
-        plt.plot(preds, label='Prediction', linewidth=2)
-    plt.plot(true, label='GroundTruth', linewidth=2)
-    plt.legend()
-    plt.savefig(name, bbox_inches='tight')
+    plt.figure(figsize=(7, 6))
+    plt.style.use('seaborn-v0_8-whitegrid')
+    ax = plt.gca()
+    ax.tick_params(labelsize=21)
+    ax.set_facecolor('#F9F8F7')
+    plt.gcf().patch.set_facecolor('#FFFFFF')
+    plt.plot(
+        true,
+        label='GroundTruth',
+        linewidth=2.4,
+        linestyle='-',
+        color='#1E90FF',
+        alpha=1.0
+    )
+    if horizon_len is not None:
+        total_len = len(preds)
+        split = min(int(horizon_len), total_len)
+        plt.plot(
+            np.arange(0, split),
+            preds[:split],
+            label='_nolegend_',
+            linewidth=2.4,
+            linestyle='--',
+            color='#1E90FF',
+            alpha=1.0
+        )
+
+        plt.plot(
+            np.arange(split, total_len),
+            preds[split:],
+            label='Prediction',
+            linewidth=2.2,
+            linestyle='--',
+            color='#FF4500',
+            alpha=0.9
+        )
+    else:
+        plt.plot(
+            preds,
+            label='Prediction',
+            linewidth=2.2,
+            linestyle='--',
+            color='#FF4500',
+            alpha=1.0
+        )
+    
+    plt.grid(True, linestyle=':', linewidth=0.8, alpha=0.6)
+    plt.legend(
+        frameon=True,
+        ncol=1,
+        fontsize=15,
+        loc='upper left',
+        framealpha=0.6,
+        facecolor='#ffffff',
+        edgecolor='#cccccc'
+    )
+    ax.text(
+        0.5,
+        -0.08,
+        title if title is not None else '',
+        transform=ax.transAxes,
+        ha='center',
+        va='top',
+        fontsize=22,
+        fontweight='bold',
+        color='#333333'
+    )
+    plt.tight_layout(rect=[0, 0.08, 1, 1])
+    plt.savefig(name, bbox_inches='tight', dpi=150)
+    plt.close()
 
 
 def adjustment(gt, pred):

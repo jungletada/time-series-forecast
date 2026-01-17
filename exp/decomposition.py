@@ -3,21 +3,34 @@ import numpy as np
 import pandas as pd
 from PyEMD import EMD
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings("ignore")
 
-import os
-import numpy as np
-import pandas as pd
-from PyEMD import EMD
-from tqdm import tqdm
-from joblib import Parallel, delayed
-from sklearn.preprocessing import StandardScaler
-import warnings
 
-warnings.filterwarnings("ignore")
+def merge_components(data_npy, k):
+    if k is None:
+        return data_npy
+    # 处理分解数据的通道合并
+    T, C, N_IMFS = data_npy.shape
+    k = min(k, N_IMFS - 1)
+    if k > 0 and k < N_IMFS - 1: 
+        comp1 = np.sum(data_npy[:, :, :k], axis=-1)
+        comp2 = data_npy[:, :, k]
+        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1)
+    elif k == 0: # The first component
+        comp1 = data_npy[:, :, 0]
+        comp2 = data_npy[:, :, 1]
+        comp3 = np.sum(data_npy[:, :, 2:], axis=-1)
+    elif k == N_IMFS - 1: # The last component
+        comp1 = np.sum(data_npy[:, :, :N_IMFS - 2], axis=-1)
+        comp2 = data_npy[:, :, N_IMFS - 2]
+        comp3 = data_npy[:, :, N_IMFS - 1]
+
+    decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
+    return decomp_data
 
 class M4Decomposition:
     def __init__(self, root_path, frequency, max_imfs=10):
@@ -155,13 +168,14 @@ class M4Decomposition:
         print(f"  > Done. Saved train_cd.npy and test_cd.npy")
         
 class LongTermDecomposition:
-    def __init__(self, data_type, root_path, data_file, max_imfs=10, seq_len=96, scale=False):
+    def __init__(self, data_type, root_path, data_file, selected_k=2,max_imfs=10, seq_len=96, scale=False):
         self.data_type = data_type
         self.root_path = root_path
         self.data_file = data_file
         self.file_path = os.path.join(root_path, data_file)
         self.max_imfs = max_imfs
         self.seq_len = seq_len
+        self.selected_k = selected_k
         self.scale = scale # 是否在分解前归一化，默认不归一化
         
         self.emd = EMD()
@@ -227,12 +241,13 @@ class LongTermDecomposition:
     def _process_column(self, full_series, border):
         # 1. Train Set
         train_raw = full_series[border['start'][0]:border['end'][0]]
+
         train_decomp = self._decompose_and_pad(train_raw)
         
         # 2. Validation Set (Train + Val 的历史信息)
         val_raw = full_series[0:border['end'][1]] # 总是从 0 开始以保持索引对齐
         val_decomp_full = self._decompose_and_pad(val_raw)
-        # 此时 val_decomp_full 的长度为 border['end'][1]
+        # val_decomp_full 的长度为 border['end'][1]
         # 我们切取出 [border['start'][1] : border['end'][1]]
         val_decomp_cd = val_decomp_full[border['start'][1]:border['end'][1]]
         
@@ -268,7 +283,11 @@ class LongTermDecomposition:
               f"  > Test[{border['start'][2]}:{border['end'][2]}]")
         
         # 并行处理
-        # 这里的 data_values 已经是 numpy array
+        print(f"data_values: {data_values.shape}")
+        train_raw = data_values[border['start'][0]:border['end'][0], :]
+        val_raw = data_values[border['start'][1]:border['end'][1], :]
+        test_raw = data_values[border['start'][2]:border['end'][2], :]
+        
         results = Parallel(n_jobs=-1)(
             delayed(self._process_column)(data_values[:, i], border) 
             for i in tqdm(range(data_values.shape[1]), desc="Decomposing Cols")
@@ -284,16 +303,63 @@ class LongTermDecomposition:
         val_tensor =   np.stack(val_list, axis=1)
         test_tensor  = np.stack(test_list, axis=1)
         
-        base_name = self.file_path.replace('.csv', '')
-        # 建议文件名带上 seq_len 防止混淆
-        suffix = f"_sl{self.seq_len}_cd_{self.max_imfs}"
-        np.save(f"{base_name}_train{suffix}.npy", train_tensor)
-        np.save(f"{base_name}_val{suffix}.npy", val_tensor)
-        np.save(f"{base_name}_test{suffix}.npy",  test_tensor)
+        merged_train = merge_components(train_tensor, self.selected_k)
+        merged_val = merge_components(val_tensor, self.selected_k)
+        merged_test = merge_components(test_tensor, self.selected_k)
         
-        print(f"  > Saved Train {train_tensor.shape} to {base_name}_train{suffix}.npy,\n" 
-              f"  > Saved Val {val_tensor.shape} to {base_name}_val{suffix}.npy,\n" 
-              f"  > Saved Test {test_tensor.shape} to {base_name}_test{suffix}.npy\n")
+        # merged_train_sum = np.sum(merged_train, axis=-1)
+        # merged_val_sum = np.sum(merged_val, axis=-1)
+        # merged_test_sum = np.sum(merged_test, axis=-1)
+
+        base_name = self.file_path.replace('.csv', '')
+        
+        suffix = f"_sl{self.seq_len}_cd" # 建议文件名带上 seq_len 防止混淆
+        # # Visualization helper
+        # def plot_and_save(true_array, sum_array, split, base_name, suffix):
+        #     plt.figure(figsize=(12,6))
+        #     # Plot only the first channel if multidimensional for clarity
+        #     arr1 = true_array[:,0] if true_array.ndim > 1 else true_array
+        #     arr2 = sum_array[:,0] if sum_array.ndim > 1 else sum_array
+        #     plt.plot(arr1, label=f"{split}_raw", alpha=0.7)
+        #     plt.plot(arr2, label=f"{split}_merged_sum", alpha=0.7)
+        #     plt.plot(arr1 - arr2, label=f"{split}_diff", alpha=0.7)
+        #     diff = arr1 - arr2
+        #     if np.allclose(diff, 0):
+        #         print(">>>>>>>>>>>>>>> equal")
+        #     else:
+        #         print(">>>>>>>>>>>>>>> error")
+        #     plt.legend()
+        #     plt.title(f"{split} raw vs merged_sum")
+        #     plt.xlabel('Time')
+        #     plt.ylabel('Value')
+        #     save_path = f"{base_name}_{split}_compare{suffix}.png"
+        #     plt.savefig(save_path, dpi=150)
+        #     plt.close()
+        #     print(f"  > Saved {split} comparison plot to {save_path}")
+
+        # plot_and_save(train_raw, merged_train_sum, 'train', base_name, suffix)
+        # plot_and_save(val_raw, merged_val_sum, 'val', base_name, suffix)
+        # plot_and_save(test_raw, merged_test_sum, 'test', base_name, suffix)
+
+        # # Optionally keep the original assertions for safety
+        # assert np.allclose(merged_train_sum, train_raw)
+        # assert np.allclose(merged_val_sum, val_raw)
+        # assert np.allclose(merged_test_sum, test_raw)
+        
+        # np.save(f"{base_name}_train{suffix}.npy", train_tensor)
+        # np.save(f"{base_name}_val{suffix}.npy", val_tensor)
+        # np.save(f"{base_name}_test{suffix}.npy",  test_tensor)
+    
+        np.save(f"{base_name}_train_merged{suffix}.npy", merged_train)
+        np.save(f"{base_name}_val_merged{suffix}.npy", merged_val)
+        np.save(f"{base_name}_test_merged{suffix}.npy", merged_test)
+
+        print(f"  > Saved Train {train_tensor.shape} to {base_name}_train_{suffix}.npy,\n" 
+              f"  > Saved Val {val_tensor.shape} to {base_name}_val_{suffix}.npy,\n" 
+              f"  > Saved Test {test_tensor.shape} to {base_name}_test_{suffix}.npy\n"
+              f"  > Saved Train Merged {merged_train.shape} to {base_name}_train_merged{suffix}.npy,\n" 
+              f"  > Saved Val Merged {merged_val.shape} to {base_name}_val_merged{suffix}.npy,\n" 
+              f"  > Saved Test Merged {merged_test.shape} to {base_name}_test_merged{suffix}.npy\n")
 
 class ShortTermDecomposition:
     def __init__(self, data_type, root_path, data_file, max_imfs=10, seq_len=96, scale=False):
@@ -420,7 +486,7 @@ def decompose_long_term_data(data_root, K_IMFS):
         # (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
         # (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
         (f'{data_root}/electricity', 'custom', 'electricity.csv'),
-        (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
+        # (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
         # (f'{data_root}/weather', 'custom', 'weather.csv'),
         # (f'{data_root}/traffic', 'custom', 'traffic.csv'),
         ]

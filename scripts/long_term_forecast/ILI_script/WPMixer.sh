@@ -1,8 +1,4 @@
-
-export CUDA_VISIBLE_DEVICES=0
-
-# prediction lengths
-# seq_lens=(512 512 512 512)
+model_name=WPMixer
 seq_lens=(36 36 36 36)
 pred_lens=(24 36 48 60)
 learning_rates=(0.00328086 0.000493286 0.002505375 0.001977516)
@@ -25,13 +21,11 @@ strides=(8 8 8 8)
 for i in "${!pred_lens[@]}"; do
 	python -u run.py \
 		--task_name long_term_forecast \
-		--is_training 1 \
+		--is_training 0 \
 		--data_name Illness \
-		--model_id Ill_${seq_lens[$i]}_${pred_lens[$i]} \
-		--model WPMixer \
+		--model_id $model_name \
+		--model $model_name \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \

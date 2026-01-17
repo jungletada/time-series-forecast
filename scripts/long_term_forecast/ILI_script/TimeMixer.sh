@@ -1,4 +1,5 @@
 #export CUDA_VISIBLE_DEVICES=0
+model_name=TimeMixer
 e_layers=3
 down_sampling_layers=3
 down_sampling_window=2
@@ -13,9 +14,10 @@ pred_lens=(24 36 48 60)
 for i in "${!pred_lens[@]}"; do
   python -u run.py \
     --task_name long_term_forecast \
-    --is_training 1 \
+    --is_training 0 \
     --data_name Illness \
-    --model TimeMixer \
+    --model $model_name \
+    --model_id $model_name \
     --features S \
     --seq_len 36 \
     --label_len 0 \

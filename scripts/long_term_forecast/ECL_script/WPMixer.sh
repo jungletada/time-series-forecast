@@ -1,6 +1,3 @@
-
-export CUDA_VISIBLE_DEVICES=0
-
 # Model name
 model_name=WPMixer
 
@@ -29,13 +26,11 @@ strides=(8 8 8 8)
 for i in "${!pred_lens[@]}"; do
 	python -u run.py \
 		--task_name long_term_forecast \
-		--is_training 1 \
+		--is_training 0 \
 		--data_name Electricity \
-		--model_id ECL_${seq_lens[$i]}_${pred_lens[$i]} \
+		--model_id WPMixer \
 		--model WPMixer \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \

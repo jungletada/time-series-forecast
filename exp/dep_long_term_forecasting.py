@@ -219,13 +219,14 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         trues = []
         
         result_path = os.path.join(self.args.results, setting['save_dir'])
+        visual_path = os.path.join(self.args.results, setting['save_dir'], 'visual')
         if not os.path.exists(result_path):
             os.makedirs(result_path)
-
+        if not os.path.exists(visual_path):
+            os.makedirs(visual_path)
         # --- Added Initialization ---
         inference_time = 0
-        # ----------------------------
-            
+        # ----------------------------  
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 
@@ -254,32 +255,53 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 # ------------------------
                 # --- 反归一化 (Inverse Transform) ---
                 if test_data.scale and self.args.inverse:
+                    # print(f">>>>>>>>>>>>>> Use inverse transform")
+                    scale = test_data.scaler.scale_
+                    mean = test_data.scaler.mean_
+                    # scale = scale.reshape(1, 1, -1)
+                    # mean = mean.reshape(1, 1, -1)
                     shape = pred_sum.shape
-                    # 如果输出列数不匹配 (features='M' vs 'MS')，做 tile 处理
-                    if pred_sum.shape[-1] != true_sum.shape[-1]: 
-                        # 这种情况通常不需要处理，因为我们是 sum 后的
-                        pass 
+                   # 3. 执行标准反归一化公式: x * sigma + mu
+                    pred_sum = pred_sum * scale + mean
+                    true_sum = true_sum * scale + mean
                     
-                    # 这里的 reshape 是为了适配 scaler 的输入
-                    pred_sum = test_data.inverse_transform(pred_sum.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    true_sum = test_data.inverse_transform(true_sum.reshape(shape[0] * shape[1], -1)).reshape(shape)
-
+                    scale2 = test_data.raw_scaler.scale_
+                    mean2 = test_data.raw_scaler.mean_
+                    pred_sum = (pred_sum - mean2) / scale2
+                    true_sum = (true_sum - mean2) / scale2
+                    
                 preds.append(pred_sum)
                 trues.append(true_sum)
 
-                # # 可视化 (Visual)
-                # if i % 20 == 0:
-                #     # 为了可视化 Input，我们也需要对 Input 的 k 分量求和
-                #     # Input: [B, k, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
-                #     input_x = batch_x.sum(dim=1).detach().cpu().numpy()
-                    
-                #     if test_data.scale and self.args.inverse:
-                #         shape = input_x.shape
-                #         input_x = test_data.inverse_transform(input_x.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    
-                #     gt = np.concatenate((input_x[0, :, -1], true_sum[0, :, -1]), axis=0)
-                #     pd = np.concatenate((input_x[0, :, -1], pred_sum[0, :, -1]), axis=0)
-                #     visual(gt, pd, os.path.join(result_path, str(i) + '.pdf'))
+                # 可视化 (Visual)
+                if i % 2 == 0:
+                    # 为了可视化 Input，我们也需要对 Input 的 k 分量求和
+                    # Input: [B, k, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
+                    input_x = batch_x.sum(dim=1).detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        scale = test_data.scaler.scale_
+                        mean = test_data.scaler.mean_
+                        # scale = scale.reshape(1, 1, -1)
+                        # mean = mean.reshape(1, 1, -1)
+                        shape = pred_sum.shape
+                        # 3. 执行标准反归一化公式: x * sigma + mu
+                        pred_sum = pred_sum * scale + mean
+                        true_sum = true_sum * scale + mean
+                        
+                        scale2 = test_data.raw_scaler.scale_
+                        mean2 = test_data.raw_scaler.mean_
+                        pred_sum = (pred_sum - mean2) / scale2
+                        true_sum = (true_sum - mean2) / scale2
+                        
+                    horizon_len = len(input_x[0, :, -1])
+                    label = np.concatenate((input_x[0, :, -1], true_sum[0, :, -1]), axis=0)
+                    prediction = np.concatenate((input_x[0, :, -1], pred_sum[0, :, -1]), axis=0)
+                    pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
+                    visual(
+                        label, prediction, 
+                        horizon_len,
+                        pdf_save_path, 
+                        title='NDA+TCN')
 
         # Concatenate all batches
         preds = np.concatenate(preds, axis=0)
