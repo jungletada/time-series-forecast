@@ -17,13 +17,9 @@ for dataset in "${datasets[@]}"; do
         --features $features \
         --seq_len 96 \
         --pred_len $pred_len \
-        --patch_len 48 \
         --des 'Exp' \
-        --d_model $d_model \
-        --e_layers $e_layers \
-        --learning_rate 0.002 0.002 0.001 \
-        --batch_size 32 \
-        --train_epochs 20 \
+        --batch_size 16 \
+        --train_epochs 10 \
         --patience 5 \
         --itr 1
 
@@ -37,10 +33,7 @@ for dataset in "${datasets[@]}"; do
         --features $features \
         --seq_len 96 \
         --pred_len $pred_len \
-        --patch_len 48 \
         --des 'Exp' \
-        --d_model $d_model \
-        --e_layers $e_layers \
         --batch_size 16 \
         --itr 1
     done
