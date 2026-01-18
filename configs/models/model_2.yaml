@@ -22,7 +22,7 @@ seg_len: 96
 # de-stationary projector params
 p_hidden_dims: [128, 128]
 p_hidden_layers: 2
-dropout: 0.1
+dropout: 0.2
 d_model: 36  # basic model
 e_layers: 4  # basic model
 
