@@ -36,5 +36,6 @@ for i in "${!pred_lens[@]}"; do
         --label_len 0 \
         --pred_len ${pred_lens[$i]} \
         --des 'Exp' \
+        --batch_size 32 \
         --itr 1
 done

@@ -298,7 +298,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                         label, prediction, 
                         horizon_len,
                         pdf_save_path, 
-                        title='NDA+TCN'
+                        title=self.args.model_id
                     )
         # Concatenate all batches
         preds = np.concatenate(preds, axis=0)

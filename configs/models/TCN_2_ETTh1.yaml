@@ -22,11 +22,11 @@ seg_len: 96
 # de-stationary projector params
 p_hidden_dims: [128, 128]
 p_hidden_layers: 2
-d_model: 36  # basic model
+d_model: 16  # basic model
 e_layers: 4  # basic model
 
 # optimization
-learning_rate: 0.004
+learning_rate: 0.001
 des: test
 loss: MSE
 lradj: type1
