@@ -74,7 +74,7 @@ PEMS03_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS03.npz
-  selected_k: 3
+  selected_k: 4
   channels: 358
   target: 141
 
@@ -82,7 +82,7 @@ PEMS04_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS04.npz
-  selected_k: 3
+  selected_k: 4
   channels: 307
   target: 97
 
@@ -90,7 +90,7 @@ PEMS07_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS07.npz
-  selected_k: 3
+  selected_k: 4
   channels: 883
   target: 178
 
@@ -98,6 +98,6 @@ PEMS08_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS08.npz
-  selected_k: 3
+  selected_k: 4
   channels: 170
   target: 9
