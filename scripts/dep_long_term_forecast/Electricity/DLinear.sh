@@ -1,4 +1,5 @@
 model=DLinear
+model_id=NDA+DLinear
 dataset=Electricity_dep
 pred_lens=(96 192 336 720)
 
@@ -6,7 +7,9 @@ for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 1 \
+    --use_mnn 1 \
     --data_name $dataset \
+    --model_id $model_id \
     --model $model \
     --features S \
     --seq_len 96 \
@@ -18,12 +21,13 @@ for i in "${!pred_lens[@]}"; do
     --des 'Exp' \
     --itr 1
 
-      python -u run_dep.py \
+  python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 0 \
     --use_mnn 1 \
     --mnn mlp \
     --data_name $dataset \
+    --model_id $model_id \
     --model $model \
     --features S \
     --seq_len 96 \

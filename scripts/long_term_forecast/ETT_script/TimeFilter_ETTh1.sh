@@ -1,7 +1,3 @@
-export CUDA_VISIBLE_DEVICES=0
-#   --enc_in 7 \
-#   --dec_in 7 \
-#   --c_out 7 \
 
 model_name=TimeFilter
 pred_lens=(96 192 336 720)
@@ -16,13 +12,9 @@ python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --data_name ETTh1 \
-  --model_id ETTh1_${pred_lens[$i]} \
+  --model_id $model_name \
   --model $model_name \
   --features S \
-  --target OT \
-  --enc_in 1 \
-  --dec_in 1 \
-  --c_out 1 \
   --seq_len 96 \
   --label_len 48 \
   --pred_len ${pred_lens[$i]} \

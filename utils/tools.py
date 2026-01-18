@@ -1,14 +1,14 @@
 import os
 import math
-
+import copy
 import yaml
 import random
-
+import argparse
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
-
+from argparse import Namespace
 
 plt.switch_backend('agg')
 
@@ -23,51 +23,135 @@ def seed_everything(seed=2026):
         torch.backends.mps.manual_seed(seed)
 
 
-def load_data_config(args):  
-    config_path = args.data_config
-    with open(config_path, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    if args.data_name not in config:
-        raise ValueError(f'Dataset {args.data_name} not found in config file')
-    config = config[args.data_name]
-    args.data_type = config['data_type']
-    args.root_path = config['root_path']
-    args.data_path = config.get('data_path', None)
-    args.selected_k = config.get('selected_k', 2)
-    if config.get('target', None) is not None:
-        args.target = config['target']
-        
-    if args.features == 'MS' or args.features == 'M':
-        args.enc_in = config['channels']
-        args.dec_in = config['channels']
-        args.c_out = config['channels']
-        
-    elif args.features == 'S':
-        args.enc_in = 1
-        args.dec_in = 1
-        args.c_out = 1
-    
+def build_model_args(base_args: Namespace, model_cfg: dict) -> Namespace:
+    """
+    从全局 base_args 拷贝一份，然后用 model_cfg 覆盖/追加字段，
+    返回一个可以像 args 一样用的 model_args。
+    """
+    model_args = copy.deepcopy(base_args)
+    for k, v in model_cfg.items():
+        setattr(model_args, k, v)
+    return model_args
+
+def load_yaml_config(path):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f) or {}
+
+
+def override_args_with_yaml(args, parser, config: dict):
+    """
+    用 YAML 配置覆盖 args 中仍处于“默认值”的字段。
+    规则：命令行 > YAML > argparse 默认值
+    """
+    for key, value in config.items():
+        if hasattr(args, key):
+            # argparse 中定义过的参数
+            default = parser.get_default(key)
+            current = getattr(args, key)
+
+            # 只有当这个参数仍然是默认值时，才使用 YAML 覆盖
+            # ——如果用户在命令行里改过，就不会动它
+            if current == default:
+                setattr(args, key, value)
+        else:
+            # argparse 里没定义，但 YAML 想额外挂一些属性（如 data_type、root_path）
+            # 也可以直接附加在 args 上
+            setattr(args, key, value)
+
     return args
 
 
-def adjust_learning_rate(optimizer, epoch, args):
-    # lr = args.learning_rate * (0.2 ** (epoch // 2))
+def apply_model_config(args, parser):
+    if not getattr(args, 'model_config', None):
+        return args
+
+    model_cfg = load_yaml_config(args.model_config)
+    args = override_args_with_yaml(args, parser, model_cfg)
+    return args
+
+
+def apply_data_config(args, parser):
+    if not getattr(args, 'data_config', None):
+        print('No data config found')
+        return args
+
+    with open(args.data_config, 'r') as f:
+        all_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
+    if args.data_name not in all_cfg:
+        raise ValueError(f'Dataset {args.data_name} not found in config file')
+
+    data_cfg = all_cfg[args.data_name]
+
+    # 1）先用通用规则：命令行 > YAML > 默认
+    args = override_args_with_yaml(args, parser, data_cfg)
+
+    # 2）再处理你原来根据 features 设置 enc_in/dec_in/c_out 的逻辑，
+    #    但同样只在它们还等于默认值时才覆盖（命令行仍然优先）
+    if 'selected_k' in data_cfg:
+        args.selected_k = getattr(args, 'selected_k', data_cfg['selected_k'])
+    
+    if args.features in ['MS', 'M']:
+        channels = data_cfg['channels']
+        for name in ['enc_in', 'dec_in', 'c_out']:
+            if hasattr(args, name):
+                default = parser.get_default(name)
+                current = getattr(args, name)
+                if current == default:
+                    setattr(args, name, channels)
+
+    elif args.features == 'S':
+        for name in ['enc_in', 'dec_in', 'c_out']:
+            if hasattr(args, name):
+                default = parser.get_default(name)
+                current = getattr(args, name)
+                if current == default:
+                    setattr(args, name, 1)
+
+    return args
+
+
+def load_yaml(path: str) -> dict:
+    with open(path, 'r') as f:
+        return yaml.safe_load(f) or {}
+
+
+def adjust_learning_rate(optimizer, epoch, base_lr, args):
+    # # 支持标量和列表形式的 learning_rate
+    # if isinstance(args.learning_rate, (list, tuple)):
+    #     if len(args.learning_rate) == 0:
+    #         raise ValueError("args.learning_rate is an empty list.")
+    #     base_lr = float(args.learning_rate[0])
+    # else:
+    #     base_lr = float(args.learning_rate)
+
+    # 根据 lradj 选择不同的学习率策略
     if args.lradj == 'type1':
-        lr_adjust = {epoch: args.learning_rate * (0.5 ** ((epoch - 1) // 1))}
+        lr_adjust = {epoch: base_lr * (0.5 ** ((epoch - 1) // 1))}
     elif args.lradj == 'type2':
         lr_adjust = {
             2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
             10: 5e-7, 15: 1e-7, 20: 5e-8
         }
     elif args.lradj == 'type3':
-        lr_adjust = {epoch: args.learning_rate if epoch < 3 else args.learning_rate * (0.9 ** ((epoch - 3) // 1))}
+        lr_adjust = {
+            epoch: base_lr if epoch < 3
+            else base_lr * (0.9 ** ((epoch - 3) // 1))
+        }
     elif args.lradj == "cosine":
-        lr_adjust = {epoch: args.learning_rate /2 * (1 + math.cos(epoch / args.train_epochs * math.pi))}
-    if epoch in lr_adjust.keys():
+        lr_adjust = {
+            epoch: base_lr / 2.0 * (1.0 + math.cos(epoch / args.train_epochs * math.pi))
+        }
+    else:
+        # 未知的 lradj 策略，则不调整
+        lr_adjust = {}
+
+    if epoch in lr_adjust:
         lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-        print('Updating learning rate to {}'.format(lr))
+        print(f'Updating learning rate to {lr}')
+
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):

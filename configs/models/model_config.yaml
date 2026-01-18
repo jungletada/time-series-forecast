@@ -1,0 +1,60 @@
+# ----- model define -----
+expand: 2
+d_conv: 4
+top_k: 5
+num_kernels: 6
+enc_in: 7
+dec_in: 7
+c_out: 7
+d_model: 512
+n_heads: 8
+e_layers: 2
+d_layers: 1
+d_ff: 2048
+moving_avg: 25
+factor: 1
+distil: true  # 对应原来 default=True（action='store_false'）
+dropout: 0.1
+embed: timeF
+activation: gelu
+channel_independence: 1
+decomp_method: moving_avg
+use_norm: 1
+down_sampling_layers: 0
+down_sampling_window: 1
+down_sampling_method: null
+seg_len: 96
+
+# de-stationary projector params
+p_hidden_dims: [128, 128]
+p_hidden_layers: 2
+
+# optimization
+num_workers: 10
+itr: 1
+train_epochs: 10
+print_freq: 100
+batch_size: 32
+patience: 3
+learning_rate: [0.008, 0.004, 0.001]
+des: test
+loss: MSE
+lradj: type1
+use_amp: false        # 对应 action='store_true'
+
+# TimeXer
+patch_len: 16
+
+# GCN
+node_dim: 10
+gcn_depth: 2
+gcn_dropout: 0.3
+propalpha: 0.3
+conv_channel: 32
+skip_channel: 32
+individual: false      # 对应 action='store_true'
+
+# TimeFilter
+alpha: 0.1
+top_p: 0.5
+pos: 1

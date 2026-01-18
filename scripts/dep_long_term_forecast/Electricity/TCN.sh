@@ -1,10 +1,9 @@
-model_name=TCN
 seq_len=96
 d_model=32
 e_layers=4
-mnn=mlp
-dataset=Electricity_dep
+model_name=TCN
 model_id=NDA+TCN
+dataset=Electricity_dep
 pred_lens=(96 192 336 720)
 
 for pred_len in "${pred_lens[@]}"; do
@@ -22,18 +21,16 @@ for pred_len in "${pred_lens[@]}"; do
         --e_layers $e_layers \
         --des 'Exp' \
         --itr 1 \
-        --learning_rate 0.001 \
+        --learning_rate 0.008 0.004 0.002 \
         --train_epochs 10 \
         --patience 5 \
-        --batch_size 128 \
-        --inverse
+        --batch_size 16
 
     python -u run_dep.py \
         --task_name long_term_forecast \
         --model_id $model_id \
         --is_training 0 \
         --use_mnn 1 \
-        --mnn $mnn \
         --data_name $dataset \
         --model $model_name \
         --seq_len $seq_len \
@@ -44,6 +41,5 @@ for pred_len in "${pred_lens[@]}"; do
         --e_layers $e_layers \
         --batch_size 32 \
         --des 'Exp' \
-        --itr 1 \
-        --inverse
+        --itr 1 
 done

@@ -2,7 +2,7 @@ ETTh1_dep:
   data_type: ETTh1_dep
   root_path: dataset/ETT-small/
   data_path: ETTh1.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -10,7 +10,7 @@ ETTh2_dep:
   data_type: ETTh2_dep
   root_path: dataset/ETT-small/
   data_path: ETTh2.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -18,7 +18,7 @@ ETTm1_dep:
   data_type: ETTm1_dep
   root_path: dataset/ETT-small/
   data_path: ETTm1.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -26,7 +26,7 @@ ETTm2_dep:
   data_type: ETTm2_dep
   root_path: dataset/ETT-small/
   data_path: ETTm2.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -34,7 +34,7 @@ Exchange_dep:
   data_type: Exchange_dep
   root_path: dataset/exchange_rate/
   data_path: exchange_rate.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -42,7 +42,7 @@ Illness_dep:
   data_type: Illness_dep
   root_path: dataset/illness/
   data_path: national_illness.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -50,7 +50,7 @@ Weather_dep:
   data_type: Weather_dep
   root_path: dataset/weather/
   data_path: weather.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -58,7 +58,7 @@ Traffic_dep:
   data_type: Traffic_dep
   root_path: dataset/traffic/
   data_path: traffic.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 
@@ -66,7 +66,7 @@ Electricity_dep:
   data_type: Electricity_dep
   root_path: dataset/electricity/
   data_path: electricity.csv
-  selected_k: 2
+  selected_k: 3
   target: OT
   channels: 7
 

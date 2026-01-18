@@ -3,12 +3,11 @@ import sys
 import json
 import logging
 import argparse
-
 import torch
 import torch.backends
 from exp.dep_long_term_forecasting import Exp_Dep_Long_Term_Forecast
 from exp.dep_short_term_forecasting import Dep_Short_Term_Forecasting
-from utils.tools import seed_everything, load_data_config
+from utils.tools import seed_everything, apply_model_config, apply_data_config, load_yaml, build_model_args
 
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
@@ -18,14 +17,24 @@ def get_args():
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
+    parser.add_argument('--visualize', type=int, default=1, help='visualize the results')
     parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
     parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
-    # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
+    # parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')           
+    parser.add_argument('--model_configs', type=str,nargs=3,
+        default=[
+            'configs/models/model_0.yaml',
+            'configs/models/model_1.yaml',
+            'configs/models/model_2.yaml'
+        ],
+        help='three yaml files for three models'
+    )
+    # data loader
     parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name')
     parser.add_argument('--features', type=str, default='S',
                         help='forecasting task, options:[M, S, MS]; " \
@@ -35,7 +44,7 @@ def get_args():
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily," \
                             "b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
-    parser.add_argument('--selected_k', type=int, default=2, help='selected k for IMF decomposition')
+    parser.add_argument('--selected_k', type=int, default=3, help='selected k for IMF decomposition')
     parser.add_argument('--checkpoints', type=str, default='checkpoints/', help='location of model checkpoints')
     parser.add_argument('--results', type=str, default='results/', help='location of result files')
     # forecasting task
@@ -51,15 +60,17 @@ def get_args():
     # anomaly detection task
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%%)')
 
+    # dataset defined model parameters
+    parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
+    parser.add_argument('--dec_in', type=int, default=7, help='decoder input size')
+    parser.add_argument('--c_out', type=int, default=7, help='output size')
+
     # model define
-    parser.add_argument('--model_config', type=str, default='configs/models/iTransformer.yaml', help='model config')
     parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
     parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
     parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
-    parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
-    parser.add_argument('--dec_in', type=int, default=7, help='decoder input size')
-    parser.add_argument('--c_out', type=int, default=7, help='output size')
+   
     parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
     parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
     parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
@@ -85,7 +96,11 @@ def get_args():
                         help='down sampling method, only support avg, max, conv')
     parser.add_argument('--seg_len', type=int, default=96,
                         help='the length of segmen-wise iteration of SegRNN')
-
+    # de-stationary projector params
+    parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=[128, 128],
+                        help='hidden layer dimensions of projector (List)')
+    parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
+    
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -93,11 +108,30 @@ def get_args():
     parser.add_argument('--print_freq', type=int, default=100, help='print frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
+    parser.add_argument('--learning_rate',type=float,nargs='+', default=[0.001,0.001,0.0005], help='optimizer learning rate(s)'
+        )
     parser.add_argument('--des', type=str, default='test', help='exp description')
     parser.add_argument('--loss', type=str, default='MSE', help='loss function')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
+    # # TimeXer
+    # parser.add_argument('--patch_len', type=int, default=16, help='patch length')
+
+    # # GCN
+    # parser.add_argument('--node_dim', type=int, default=10, help='each node embbed to dim dimentions')
+    # parser.add_argument('--gcn_depth', type=int, default=2, help='')
+    # parser.add_argument('--gcn_dropout', type=float, default=0.3, help='')
+    # parser.add_argument('--propalpha', type=float, default=0.3, help='')
+    # parser.add_argument('--conv_channel', type=int, default=32, help='')
+    # parser.add_argument('--skip_channel', type=int, default=32, help='')
+
+    # parser.add_argument('--individual', action='store_true', default=False,
+    #                     help='DLinear: a linear layer for each variate(channel) individually')
+
+    # # TimeFilter
+    # parser.add_argument('--alpha', type=float, default=0.1, help='KNN for Graph Construction')
+    # parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
+    # parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
 
     # GPU
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
@@ -105,11 +139,6 @@ def get_args():
     parser.add_argument('--gpu_type', type=str, default='cuda', help='gpu type')  # cuda or mps
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
     parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
-
-    # de-stationary projector params
-    parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=[128, 128],
-                        help='hidden layer dimensions of projector (List)')
-    parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
     # metrics (dtw)
     parser.add_argument('--use_dtw', type=bool, default=False,
@@ -139,27 +168,10 @@ def get_args():
                         help="Discrimitive shapeDTW warp preset augmentation")
     parser.add_argument('--extra_tag', type=str, default="", help="Anything extra")
 
-    # TimeXer
-    parser.add_argument('--patch_len', type=int, default=16, help='patch length')
-
-    # GCN
-    parser.add_argument('--node_dim', type=int, default=10, help='each node embbed to dim dimentions')
-    parser.add_argument('--gcn_depth', type=int, default=2, help='')
-    parser.add_argument('--gcn_dropout', type=float, default=0.3, help='')
-    parser.add_argument('--propalpha', type=float, default=0.3, help='')
-    parser.add_argument('--conv_channel', type=int, default=32, help='')
-    parser.add_argument('--skip_channel', type=int, default=32, help='')
-
-    parser.add_argument('--individual', action='store_true', default=False,
-                        help='DLinear: a linear layer for each variate(channel) individually')
-
-    # TimeFilter
-    parser.add_argument('--alpha', type=float, default=0.1, help='KNN for Graph Construction')
-    parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
-    parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
-
+    # 1. 先按代码默认值 + 命令行解析一遍
     args = parser.parse_args()
-    return args
+    
+    return args, parser
 
 def get_logger(log_file='run.log'):
     """Set up logging to a file, replacing print with logger.info or logger.error
@@ -182,8 +194,24 @@ def get_logger(log_file='run.log'):
     return logger
   
 if __name__ == '__main__':
-    args = get_args()
-    args = load_data_config(args)
+    args, parser = get_args()
+    # 用 data_config.yaml 覆盖还在默认值的数据参数（命令行优先）
+    args = apply_data_config(args, parser)
+    
+    model_args_list = []
+
+    for cfg_path in args.model_configs:
+        model_cfg = load_yaml(cfg_path)
+        model_args = build_model_args(args, model_cfg)
+        model_args.data_config = args.data_config
+        model_args.enc_in = args.enc_in
+        model_args.dec_in = args.dec_in
+        model_args.c_out = args.c_out
+        print(model_args.enc_in, model_args.dec_in, model_args.c_out)
+        model_args_list.append(model_args)
+
+    args.model_args_list = model_args_list
+
     seed_everything(args.seed)
     
     if torch.cuda.is_available() and args.use_gpu:

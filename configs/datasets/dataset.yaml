@@ -88,8 +88,3 @@ PEMS08:
   data_path: PEMS08.npz
   channels: 170
   target: 9
-  
-# M4:
-#   data_type: m4
-#   root_path: dataset/m4/
-#   seasonal_patterns: ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Hourly']

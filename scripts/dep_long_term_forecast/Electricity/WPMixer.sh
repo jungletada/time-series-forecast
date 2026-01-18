@@ -1,5 +1,3 @@
-export CUDA_VISIBLE_DEVICES=0
-
 seq_lens=(96 96 96 96)
 pred_lens=(96 192 336 720)
 learning_rates=(0.00328086 0.000493286 0.002505375 0.001977516)
@@ -17,7 +15,8 @@ levels=(2 3 1 2)
 tfactors=(3 7 5 7)
 dfactors=(5 5 7 8)
 strides=(8 8 8 8)
-
+model_name=WPMixer
+model_id=NDA+WPMixer
 # Loop over datasets and prediction lengths
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
@@ -25,11 +24,9 @@ for i in "${!pred_lens[@]}"; do
 		--task_name long_term_forecast \
 		--is_training 1 \
 		--data_name Electricity_dep \
-		--model_id ECL_${seq_lens[$i]}_${pred_lens[$i]} \
-		--model WPMixer \
+		--model_id $model_id \
+		--model $model_name \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \
@@ -46,16 +43,15 @@ done
 
 for i in "${!pred_lens[@]}"; do
 	python -u run_dep.py \
+		--seed 42 \
 		--task_name long_term_forecast \
 		--is_training 0 \
 		--use_mnn 1 \
 		--mnn mlp \
 		--data_name Electricity_dep \
-		--model_id ECL_${seq_lens[$i]}_${pred_lens[$i]} \
-		--model WPMixer \
+		--model_id $model_id \
+		--model $model_name \
 		--features S \
-    	--target OT \
-    	--c_out 1 \
 		--seq_len ${seq_lens[$i]} \
 		--pred_len ${pred_lens[$i]} \
 		--label_len 0 \

@@ -28,5 +28,5 @@ for i in "${!pred_lens[@]}"; do
     --d_model ${d_model[$i]}\
     --d_ff ${d_ff[$i]}\
     --dropout ${dropout[$i]} \
-    --itr 1 
+    --itr 1
 done

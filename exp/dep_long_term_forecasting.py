@@ -18,23 +18,25 @@ warnings.filterwarnings('ignore')
 class Exp_Dep_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
         # 定义分量名称，用于日志打印
-        # self.comp_names = ['High', 'Mid', 'Low']
-
-        # 调用父类初始化
         super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
         self.logger = logger
         self.logger.info(f'Initializing Exp_Dep_Long_Term_Forecast (Training K={args.num_imf} Independent Models).')
         self.logger.info(f'Number of components: {args.num_imf}')
 
     def _build_model(self):
-        # 覆盖父类方法：我们需要构建 k 个独立的模型
-        # 注意：这里假设 k 个模型使用相同的架构 (args.model)
         models = []
-        for i in range(self.args.num_imf):
-            model = self.model_dict[self.args.model].Model(self.args).float()
-            if self.args.use_multi_gpu and self.args.use_gpu:
-                model = nn.DataParallel(model, device_ids=self.args.device_ids)
-            models.append(model)
+        if hasattr(self.args, 'model_args_list'):
+            for model_args in self.args.model_args_list:
+                model = self.model_dict[self.args.model].Model(model_args).float()
+                if self.args.use_multi_gpu and self.args.use_gpu:
+                    model = nn.DataParallel(model, device_ids=self.args.device_ids)
+                models.append(model)
+        else:
+            for i in range(self.args.num_imf):
+                model = self.model_dict[self.args.model].Model(self.args).float()
+                if self.args.use_multi_gpu and self.args.use_gpu:
+                    model = nn.DataParallel(model, device_ids=self.args.device_ids)
+                models.append(model)
         return nn.ModuleList(models)
 
     def _get_data(self, flag):
@@ -44,9 +46,14 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
     def _select_optimizer(self):
         # 为每个模型创建一个独立的优化器
+        if isinstance(self.args.learning_rate, list):
+            if len(self.args.learning_rate) == self.args.num_imf:
+                learning_rates = self.args.learning_rate
+            else:
+                learning_rates = self.args.learning_rate * self.args.num_imf
         optimizers = []
-        for model in self.model: # self.model 现在是一个 ModuleList
-            model_optim = optim.Adam(model.parameters(), lr=self.args.learning_rate)
+        for i,model in enumerate(self.model): # self.model 现在是一个 ModuleList
+            model_optim = optim.Adam(model.parameters(), lr=learning_rates[i])
             optimizers.append(model_optim)
         return optimizers
 
@@ -56,7 +63,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
 
     def _process_one_batch(self, batch_x, batch_y, batch_x_mark, batch_y_mark, model_idx):
         """
-        辅助函数：处理单个模型的 Forward
+            辅助函数：处理单个模型的 Forward
         """
         # 数据已经是 [B, k, T, C]，我们取对应的 model_idx 分量 -> [B, T, C]
         b_x = batch_x[:, model_idx, :, :].float().to(self.device)
@@ -104,10 +111,8 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
-            
             # Ensure all models are in train mode
             for m in self.model: m.train()
-            
             epoch_time = time.time()
             for iter_step, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
                 iter_count += 1
@@ -176,8 +181,10 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 self.logger.info("Early stopping...")
                 break
 
-            for opt in model_optimizers:
-                adjust_learning_rate(opt, epoch + 1, self.args)
+            for i, opt in enumerate(model_optimizers):
+                model_config = self.args.model_args_list[i]
+                base_lr = model_config.learning_rate
+                adjust_learning_rate(opt, epoch + 1, base_lr, args=self.args)
 
         # 加载最优模型
         best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
@@ -213,7 +220,8 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             self.logger.info('loading model')
-            self.model.load_state_dict(torch.load(os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
+            self.model.load_state_dict(
+                torch.load(os.path.join(self.args.checkpoints, setting['save_dir'], 'checkpoint.pth')))
 
         preds = []
         trues = []
@@ -229,80 +237,69 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         # ----------------------------  
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
-                
-                # 存储当前 Batch 的 k 个分量预测结果
                 batch_preds_list = []
                 batch_trues_list = []
-                # --- Added Timing Start ---
                 start_time = time.time()
-                # --------------------------
+                
                 for comp_idx in range(self.args.num_imf):
-                    # 获取单分量预测
                     outputs, true_y = self._process_one_batch(
                         batch_x, batch_y, batch_x_mark, batch_y_mark, comp_idx
                     )
-                    # outputs: [B, Pred_Len, C]
                     batch_preds_list.append(outputs.detach().cpu().numpy())
                     batch_trues_list.append(true_y.detach().cpu().numpy())
                 
                 # --- 核心：聚合 (Aggregation) ---
-                # 将 k 个分量相加 -> 还原为归一化的原始信号
                 # [B, Pred_Len, C]
                 pred_sum = np.sum(batch_preds_list, axis=0) 
                 true_sum = np.sum(batch_trues_list, axis=0)
-                # --- Added Timing End ---
                 inference_time += time.time() - start_time
-                # ------------------------
+                
+                # 定义 scale 和 mean 变量（初始化为 None 以防不反归一化时报错）
+                scale, mean = None, None
+
                 # --- 反归一化 (Inverse Transform) ---
                 if test_data.scale and self.args.inverse:
-                    # print(f">>>>>>>>>>>>>> Use inverse transform")
-                    scale = test_data.scaler.scale_
-                    mean = test_data.scaler.mean_
-                    # scale = scale.reshape(1, 1, -1)
-                    # mean = mean.reshape(1, 1, -1)
-                    shape = pred_sum.shape
-                   # 3. 执行标准反归一化公式: x * sigma + mu
+                    # pred_sum 是 [Batch, Time, Channel]
+                    # scale 是 [1, 1, Channel] 才能正确广播
+                    scale = test_data.scaler.scale_.reshape(1, 1, -1)
+                    mean = test_data.scaler.mean_.reshape(1, 1, -1)
+                    
+                    # 反归一化预测值和真实值
                     pred_sum = pred_sum * scale + mean
                     true_sum = true_sum * scale + mean
-                    
-                    scale2 = test_data.raw_scaler.scale_
-                    mean2 = test_data.raw_scaler.mean_
-                    pred_sum = (pred_sum - mean2) / scale2
-                    true_sum = (true_sum - mean2) / scale2
                     
                 preds.append(pred_sum)
                 trues.append(true_sum)
 
                 # 可视化 (Visual)
-                if i % 2 == 0:
-                    # 为了可视化 Input，我们也需要对 Input 的 k 分量求和
-                    # Input: [B, k, Seq_Len, C] -> Sum dim1 -> [B, Seq_Len, C]
+                if self.args.visualize == 1 and i % 2 == 0:
+                    # 1. 聚合 Input 分量 (Sum of IMFs = Normalized Raw)
+                    # batch_x: [B, K, Seq_Len, C] -> input_x: [B, Seq_Len, C]
                     input_x = batch_x.sum(dim=1).detach().cpu().numpy()
+                    
+                    # 2. 关键修改：Input 也必须反归一化，否则拼接时会出现断层
                     if test_data.scale and self.args.inverse:
-                        scale = test_data.scaler.scale_
-                        mean = test_data.scaler.mean_
-                        # scale = scale.reshape(1, 1, -1)
-                        # mean = mean.reshape(1, 1, -1)
-                        shape = pred_sum.shape
-                        # 3. 执行标准反归一化公式: x * sigma + mu
-                        pred_sum = pred_sum * scale + mean
-                        true_sum = true_sum * scale + mean
-                        
-                        scale2 = test_data.raw_scaler.scale_
-                        mean2 = test_data.raw_scaler.mean_
-                        pred_sum = (pred_sum - mean2) / scale2
-                        true_sum = (true_sum - mean2) / scale2
-                        
-                    horizon_len = len(input_x[0, :, -1])
-                    label = np.concatenate((input_x[0, :, -1], true_sum[0, :, -1]), axis=0)
-                    prediction = np.concatenate((input_x[0, :, -1], pred_sum[0, :, -1]), axis=0)
+                        # 复用上面获取的 scale 和 mean
+                        input_x = input_x * scale + mean
+                    
+                    # 3. 拼接与绘图
+                    # 取第一个样本 [0, :, -1] (假设可视化最后一个变量)
+                    gt_data = true_sum[0, :, -1]
+                    pred_data = pred_sum[0, :, -1]
+                    input_data = input_x[0, :, -1]
+                    
+                    horizon_len = len(pred_data)
+                    # 拼接 Input 和 Output
+                    label = np.concatenate((input_data, gt_data), axis=0)
+                    prediction = np.concatenate((input_data, pred_data), axis=0)
+                    
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
                     visual(
                         label, prediction, 
                         horizon_len,
                         pdf_save_path, 
-                        title='NDA+TCN')
-
+                        title='NDA+TCN'
+                    )
         # Concatenate all batches
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)

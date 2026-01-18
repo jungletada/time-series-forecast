@@ -12,7 +12,7 @@ from exp.exp_imputation import Exp_Imputation
 from exp.exp_anomaly_detection import Exp_Anomaly_Detection
 from exp.exp_classification import Exp_Classification
 from exp.exp_zero_shot_forecasting import Exp_Zero_Shot_Forecast
-from utils.tools import seed_everything, load_data_config
+from utils.tools import seed_everything, apply_data_config, apply_model_config
 
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
@@ -28,6 +28,7 @@ def get_args():
 
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
+    parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')
     parser.add_argument('--data_name', type=str, default='ETTh1', help='dataset name')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; " \
@@ -53,7 +54,6 @@ def get_args():
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%%)')
 
     # model define
-    parser.add_argument('--model_config', type=str, default='configs/models/iTransformer.yaml', help='model config')
     parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
     parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
@@ -159,7 +159,15 @@ def get_args():
     parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
     parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
 
+    # 1. 先按代码默认值 + 命令行解析一遍
     args = parser.parse_args()
+
+    # 2. 用 model_config.yaml 覆盖还在默认值的模型参数（命令行优先）
+    args = apply_model_config(args, parser)
+
+    # 3. 用 data_config.yaml 覆盖还在默认值的数据参数（命令行优先）
+    args = apply_data_config(args, parser)
+
     return args
 
 def get_logger(log_file='run.log'):
@@ -184,7 +192,7 @@ def get_logger(log_file='run.log'):
 
 if __name__ == '__main__':
     args = get_args()
-    args = load_data_config(args)
+    
     seed_everything(args.seed)
     
     if torch.cuda.is_available() and args.use_gpu:

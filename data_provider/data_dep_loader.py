@@ -51,19 +51,18 @@ def split_residual(data_npy, data_processed):
     return data_processed
 
 class Dataset_ETT_Decomposed(Dataset):
-    def __init__(self, args, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, time_enc=0, freq='h', 
-                 seasonal_patterns=None,):
+    def __init__(self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
+                 target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None,):
         # size [seq_len, label_len, pred_len]
         self.args = args
         self.mnn = args.mnn
+        self.use_residual = True
         use_mnn = getattr(args, 'use_mnn', 0)
 
         if use_mnn == 1:
-            self.test_mnn = True
+            self.use_mnn = True
         else:
-            self.test_mnn = False
+            self.use_mnn = False
 
         if size is None:
             self.seq_len = 24 * 4 * 4
@@ -89,7 +88,7 @@ class Dataset_ETT_Decomposed(Dataset):
         # k parameter: IMFs 0~k-1 (High), k (Mid), k+1~end (Low)
         # 默认 k=3，意味着 IMF0, IMF1, IMF2 是高频，IMF3 是中频，剩下的低频
         # 根据实际 decomposition.py 的 max_imfs (例如10) 来调整这个 k
-        self.k = getattr(self.args, 'selected_k', 2) 
+        self.k = self.args.selected_k
         
         # 这里的 borders 仅用于 CSV 时间戳的切分
         # 注意：必须与 decomposition.py 中的逻辑严格一致
@@ -139,9 +138,9 @@ class Dataset_ETT_Decomposed(Dataset):
         df_raw = pd.read_csv(csv_path)
         
         # --- Feature Selection (S or M) ---
-        # 我们需要知道保留哪些 Column Index
         if self.features == 'M' or self.features == 'MS': # 排除第一列 date，取剩余所有
             cols_data = df_raw.columns[1:] # 对应的 Numpy 索引就是 0 到 C-1
+            df_data = df_raw[cols_data]
             target_indices = list(range(len(cols_data))) 
         elif self.features == 'S': # 只取 target 列
             if self.target not in df_raw.columns:
@@ -149,6 +148,7 @@ class Dataset_ETT_Decomposed(Dataset):
             # 找到 target 在 "数据列" (去除date后) 中的索引
             # df_raw.columns[1:] 对应 npy 的 Channel 维度
             data_cols = list(df_raw.columns[1:])
+            df_data = df_raw[[self.target]]
             target_idx = data_cols.index(self.target)
             target_indices = [target_idx]
             self.target_idx = target_idx
@@ -161,7 +161,9 @@ class Dataset_ETT_Decomposed(Dataset):
         # 3. 处理时间戳 (Time Stamp), CSV 是全量的，需要切片
         start_idx = self.borders['start'][self.set_type]
         end_idx = self.borders['end'][self.set_type]
-        
+        s0, e0 = self.borders['start'][0], self.borders['end'][0]
+        s1, e1 = self.borders['start'][1], self.borders['end'][1]
+        s2, e2 = self.borders['start'][2], self.borders['end'][2]
         # 严格对齐检查
         if len(data_npy) != (end_idx - start_idx):
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
@@ -195,72 +197,89 @@ class Dataset_ETT_Decomposed(Dataset):
                 data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq='h')
                 data_stamp = data_stamp.transpose(1, 0)
                 
-        # 4. 合并分量 (Merge Components)
-        # data_npy is [T, C, K_IMFS]
-        k = self.k
+        # 4. 读取分量并且合并为3个分量 (Merge Components)
         T, C, N_IMFS = data_npy.shape
+        if self.use_mnn:
+            if self.set_type == 0:
+                mnn_train_npy_path = os.path.join(self.root_path, f"pred_{base_name}_train_sl{self.seq_len}_{self.mnn}_cd.npy")
+                if os.path.exists(mnn_train_npy_path):
+                    data_mnn_npy_train = np.load(mnn_train_npy_path)
+                    print(f"Loaded MNN data from {mnn_train_npy_path}, shape: {data_mnn_npy_train.shape}")
+                else:
+                    raise FileNotFoundError(f"MNN data not found. Looked for {mnn_train_npy_path}.")
+                print(f">>>>>>>>>>>>> Using MNN data for training")
+                if self.use_residual:
+                    train_raw_data = df_data[s0:e0]
+                    data_mnn_npy_train = data_mnn_npy_train.reshape(-1, 1, self.args.num_imf - 1)
+                    high = train_raw_data.values - data_mnn_npy_train.sum(axis=-1)
+                    data_mnn_npy_train = np.concatenate([high.reshape(-1, 1, 1), data_mnn_npy_train], axis=-1)
+                    data_processed = data_mnn_npy_train
+                else:
+                    data_processed = data_mnn_npy_train
 
-        # if data_pred_npy is not None and self.set_type == 0:
-        #     data_processed = data_pred_npy.reshape(-1, 1, 3)
-        #     print(f">>>>>>>>>>>>>>>> Data processed from {pred_train_npy_path}, with shape {data_processed.shape}")
-        # else:
+            elif self.set_type == 1:
+                # print(f">>>>>>>>>>>>> Using MNN data for validation")
+                data_processed = merge_components(data_npy, self.k)
 
-        data_processed = data_npy # merge_components(data_npy, self.k)
-        print(f">>>>>>>>>>>>>>>> Data processed from {npy_path}, with shape {data_processed.shape}")
-        # data_processed = split_residual(data_npy, data_processed)
-        # print(f">>>>>>>>>>>>>>>> Residual data processed from {npy_path}, with shape {data_processed.shape}")
+            if self.set_type == 2: # load mnn data for test
+                k = None if self.args.num_imf == 10 else self.k
+                suffix = "_smoothed"
+                prefix = "all" if k is None else "pred"
+                data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+                # ================== Use Residual Data for Test=====================================
+                data_mnn_test = np.load(data_mnn_test_path)
+                print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+                if self.use_residual:
+                    s2, e2 = self.borders['start'][2], self.borders['end'][2]
+                    test_raw_data = df_data[s2:e2]
+                    if data_mnn_test.shape[-1] == self.args.num_imf - 1:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf - 1)
+                        high = test_raw_data.values - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test], axis=-1)
+                    elif data_mnn_test.shape[-1] == self.args.num_imf:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf)
+                        high = test_raw_data.values - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test[:, :, 1:]], axis=-1)
+                    else:
+                        raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
+                # ================== Use Residual Data for Test=====================================
+                print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
+                data_processed = merge_components(data_npy, self.k)
+
+        else:
+            data_processed = merge_components(data_npy, self.k)
         
-        # load mnn data for test
-        if self.set_type == 2 and self.test_mnn:
-            suffix = "_smoothed"
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            original_test_npy_path = os.path.join(self.root_path, f"{base_name}_test_sl{self.seq_len}_cd.npy")
+        print(f">>>>>>>>>>>>> {current_flag_name} {self.use_mnn}: data_processed.shape: {data_processed.shape}")
             
-            print(f">>>>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
-            # original_test_npy = np.load(original_test_npy_path)
-            # original_test_npy = original_test_npy[:, target_indices, :]
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
-            # test_residual = split_residual(original_test_npy, data_mnn)
-            
-            assert data_mnn.shape[0] == data_processed.shape[0]
-            data_processed = data_mnn
-            # print(f">>>>>>>>>>>>>>>> Test residual data processed from {mnn_npy_path}, with shape {test_residual.shape}")
-            # data_processed = test_residual
         # 5. 标准化 (Scaling)
         if self.scale:
             # 加载 Train 数据计算 Mean/Std
-            train_npy_path = os.path.join(self.root_path, f"{base_name}_train_sl{self.seq_len}_cd.npy")
-            
-            # 读取 Train 并筛选特征
-            train_npy = np.load(train_npy_path) # [T_train, Total_C, K]
-            train_npy = train_npy[:, target_indices, :] # [T_train, Selected_C, K]
-            
-            # 还原为原始信号值来 Fit Scaler
-            train_sum = np.sum(train_npy, axis=-1) # [T_train, C]
-            self.scaler.fit(train_sum)
-            
+            train_raw_data = df_data[s0:e0]
+            self.scaler.fit(train_raw_data.values)
             # 获取 scaler 的参数，形状适配 [1, C, 1] 以便广播
             # mean: [C], scale: [C]
-            mean_ = self.scaler.mean_.reshape(1, C, 1)
+            mean = self.scaler.mean_.reshape(1, C, 1)
             scale = self.scaler.scale_.reshape(1, C, 1)
-            
-            # --- 关键 Scaling 逻辑 ---
-            # data_processed: [T, C, 3] -> [96, C, 3] -> [336, C, 3]
-            # 0: High, 1: Mid, 2: Low
-            
-            # 1. High Freq & Mid Freq: 仅除以 scale (假设它们是围绕0波动的)
-            data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
-            
-            # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:] = (data_processed[:, :, 2:] - mean_) / scale
+            # 对于前面的分量 (High/Mid Freq): 仅缩放 (Scale)，不平移
+            # 0 到 K-2 是高频/中频
+            data_processed[:, :, :-1] = data_processed[:, :, :-1] / scale
+            # 对于最后一个分量 (Trend/Low Freq): 缩放 + 平移 (减去均值)
+            # 这样 sum(components) = (H/s + ... + (L-m)/s) = (Sum-m)/s = (X-m)/s
+            data_processed[:, :, -1:] = (data_processed[:, :, -1:] - mean) / scale
+          
+            # 对于 MNN 测试数据的处理同理
+            if self.set_type == 2 and self.use_mnn:
+                data_mnn_test[:, :, :-1] = data_mnn_test[:, :, :-1] / scale
+                data_mnn_test[:, :, -1:] = (data_mnn_test[:, :, -1:] - mean) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
-        # 这里为了保持 __getitem__ 方便，我们先存为 [K, T, C]
-        self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
+        if self.set_type == 2 and self.use_mnn:
+            self.data_x = data_mnn_test.transpose(2, 0, 1) # [K, T, C]
+        else:
+            self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_stamp = data_stamp
-
 
     def __getitem__(self, index):
         s_begin = index
@@ -311,12 +330,9 @@ class Dataset_Custom_Decomposed(Dataset):
         self.args = args
         self.mnn = args.mnn
         use_mnn = getattr(args, 'use_mnn', 0)
-        if use_mnn == 1:
-            self.test_mnn = True
-        else:
-            self.test_mnn = False
-        self.k = getattr(self.args, 'selected_k', 2) 
-        
+        self.use_mnn = True if use_mnn == 1 else False
+        self.k = self.args.selected_k
+        self.use_residual = True
         # info
         self.seq_len = size[0]
         self.label_len = size[1]
@@ -340,18 +356,17 @@ class Dataset_Custom_Decomposed(Dataset):
     
     def __read_data__(self):
         self.scaler = StandardScaler()
-        self.raw_scaler = StandardScaler()
         base_name = os.path.splitext(self.data_path)[0]
         cfg_name = os.path.splitext(os.path.basename(self.data_path))[0]
-
+        print(f">>>>>>>>>>>>> base_name: {base_name}, cfg_name: {cfg_name}")
         fname_map = {0: 'train', 1: 'val', 2: 'test'}
         current_flag_name = fname_map[self.set_type]
         # 加载带 seq_len 的文件名
-        npy_path = os.path.join(self.root_path, f"{base_name}_{current_flag_name}_merged_sl{self.seq_len}_cd.npy")
+        npy_path = os.path.join(self.root_path, f"{base_name}_{current_flag_name}_sl{self.seq_len}_cd.npy")
         
         if os.path.exists(npy_path):
             data_npy = np.load(npy_path)
-            print(f"Loaded decomposed data from {npy_path}")
+            print(f"Loaded decomposed data from {npy_path}, shape: {data_npy.shape}")
         else:
             raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}.")
 
@@ -384,7 +399,9 @@ class Dataset_Custom_Decomposed(Dataset):
         data_npy = data_npy[:, target_indices, :]
         start_idx = self.borders['start'][self.set_type]
         end_idx = self.borders['end'][self.set_type]
-        
+        s0, e0 = self.borders['start'][0], self.borders['end'][0]
+        s1, e1 = self.borders['start'][1], self.borders['end'][1]
+        s2, e2 = self.borders['start'][2], self.borders['end'][2]
         # 严格对齐检查
         if len(data_npy) != (end_idx - start_idx):
             print(f"!!!!!!!!!!!  Error: NPY len ({len(data_npy)}) != CSV split len ({end_idx - start_idx}).")
@@ -403,52 +420,98 @@ class Dataset_Custom_Decomposed(Dataset):
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
-        # 4. 合并分量 (Merge Components)
+        # 4. 读取分量并且合并为3个分量 (Merge Components)
         T, C, N_IMFS = data_npy.shape
-        k = None if self.args.num_imf == 10 else self.k
-        data_processed = data_npy # merge_components(data_npy, k)
-        print(f">>>>>>>>>>>>> data_processed.shape: {data_processed.shape}")
-        # data_processed = split_residual(data_npy, data_processed)
-        # load mnn data for test
-        if self.set_type == 2 and self.test_mnn:
-            suffix = "_smoothed"
-            prefix = "all" if k is None else "pred"
-            mnn_npy_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            # original_test_npy_path = os.path.join(self.root_path, f"{base_name}_test_sl{self.seq_len}_cd.npy")
-            # original_test_npy = np.load(original_test_npy_path)
-            # original_test_npy = original_test_npy[:, target_indices, :]
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
-            # test_residual = split_residual(original_test_npy, data_mnn)
-            assert data_mnn.shape[0] == data_processed.shape[0]
-            # data_processed = data_mnn
-            # data_processed = test_residual
+
+        if self.use_mnn:
+            if self.set_type == 0:
+                mnn_train_npy_path = os.path.join(self.root_path, f"pred_{base_name}_train_sl{self.seq_len}_{self.mnn}_cd.npy")
+                if os.path.exists(mnn_train_npy_path):
+                    data_mnn_npy_train = np.load(mnn_train_npy_path)
+                    print(f"Loaded MNN data from {mnn_train_npy_path}, shape: {data_mnn_npy_train.shape}")
+                else:
+                    raise FileNotFoundError(f"MNN data not found. Looked for {mnn_train_npy_path}.")
+                print(f">>>>>>>>>>>>> Using MNN data for training")
+                if self.use_residual:
+                    train_raw_data = df_data[s0:e0]
+                    data_mnn_npy_train = data_mnn_npy_train.reshape(-1, 1, self.args.num_imf - 1)
+                    high = train_raw_data.values - data_mnn_npy_train.sum(axis=-1)
+                    data_mnn_npy_train = np.concatenate([high.reshape(-1, 1, 1), data_mnn_npy_train], axis=-1)
+                    data_processed = data_mnn_npy_train
+                else:
+                    data_processed = data_mnn_npy_train
+
+            elif self.set_type == 1:
+                # print(f">>>>>>>>>>>>> Using MNN data for validation")
+                data_processed = merge_components(data_npy, self.k)
+
+            if self.set_type == 2: # load mnn data for test
+                k = None if self.args.num_imf == 10 else self.k
+                suffix = "_smoothed"
+                prefix = "all" if k is None else "pred"
+                data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+                # ================== Use Residual Data for Test=====================================
+                data_mnn_test = np.load(data_mnn_test_path)
+                print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+                if self.use_residual:
+                    s2, e2 = self.borders['start'][2], self.borders['end'][2]
+                    test_raw_data = df_data[s2:e2]
+                    if data_mnn_test.shape[-1] == self.args.num_imf - 1:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf - 1)
+                        high = test_raw_data.values - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test], axis=-1)
+                    elif data_mnn_test.shape[-1] == self.args.num_imf:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf)
+                        high = test_raw_data.values - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test[:, :, 1:]], axis=-1)
+                    else:
+                        raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
+                # ================== Use Residual Data for Test=====================================
+                print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
+                data_processed = merge_components(data_npy, self.k)
+
+        else:
+            data_processed = merge_components(data_npy, self.k)
+        
+        print(f">>>>>>>>>>>>> {current_flag_name} {self.use_mnn}: data_processed.shape: {data_processed.shape}")
 
         # 5. 标准化 (Scaling)
         if self.scale:
             # 加载 Train 数据计算 Mean/Std
-            s0, e0 = self.borders['start'][0], self.borders['end'][0]
             train_raw_data = df_data[s0:e0]
-            self.raw_scaler.fit(train_raw_data.values)
-            # 还原为原始信号值来 Fit Scaler
-            train_npy_path = os.path.join(self.root_path, f"{base_name}_train_merged_sl{self.seq_len}_cd.npy")
-            train_npy = np.load(train_npy_path)         # [T_train, Total_C, K]
-            train_npy = train_npy[:, target_indices, :] # [T_train, Selected_C, K]
-            train_sum = np.sum(train_npy, axis=-1)      # [T_train, C]
-            self.scaler.fit(train_sum)
-            
+            self.scaler.fit(train_raw_data.values)
+            # =======================================================
+            # # 还原为原始信号值来 Fit Scaler
+            # train_npy_path = os.path.join(self.root_path, f"{base_name}_train_sl{self.seq_len}_cd.npy")
+            # train_npy = np.load(train_npy_path)         # [T_train, Total_C, K]
+            # train_npy = train_npy[:, target_indices, :] # [T_train, Selected_C, K]
+            # train_sum = np.sum(train_npy, axis=-1)      # [T_train, C]
+            # # 判断train_sum和train_raw在数值上是否相等
+            # if np.allclose(train_sum, train_raw_data.values):
+            #     print("train_sum 和 train_raw 数值相等")
+            # else:
+            #     print("train_sum 和 train_raw 数值不相等")
+            # # =======================================================
             # 获取 scaler 的参数，形状适配 [1, C, 1] 以便广播
             # mean: [C], scale: [C]
-            mean = self.scaler.mean_
-            scale = self.scaler.scale_
-            # 1. High Freq & Mid Freq: 仅除以 scale (假设它们是围绕0波动的)
-            data_processed = (data_processed - mean) / scale
-            if self.set_type == 2 and self.test_mnn:
-                data_mnn = (data_mnn - mean) / scale
+            mean = self.scaler.mean_.reshape(1, C, 1)
+            scale = self.scaler.scale_.reshape(1, C, 1)
+            # 对于前面的分量 (High/Mid Freq): 仅缩放 (Scale)，不平移
+            # 0 到 K-2 是高频/中频
+            data_processed[:, :, :-1] = data_processed[:, :, :-1] / scale
+            # 对于最后一个分量 (Trend/Low Freq): 缩放 + 平移 (减去均值)
+            # 这样 sum(components) = (H/s + ... + (L-m)/s) = (Sum-m)/s = (X-m)/s
+            data_processed[:, :, -1:] = (data_processed[:, :, -1:] - mean) / scale
+          
+            # 对于 MNN 测试数据的处理同理
+            if self.set_type == 2 and self.use_mnn:
+                data_mnn_test[:, :, :-1] = data_mnn_test[:, :, :-1] / scale
+                data_mnn_test[:, :, -1:] = (data_mnn_test[:, :, -1:] - mean) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
-        if self.set_type == 2 and self.test_mnn:
-            self.data_x = data_mnn.transpose(2, 0, 1) # [K, T, C]
+        if self.set_type == 2 and self.use_mnn:
+            self.data_x = data_mnn_test.transpose(2, 0, 1) # [K, T, C]
         else:
             self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
         self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
@@ -488,12 +551,6 @@ class Dataset_Custom_Decomposed(Dataset):
         # 3. Flatten time dims
         if data.ndim == 3:
             data = data.reshape(-1, shape[-1])
-            
-        # =======================================================
-        # 核心修改：使用 raw_scaler 进行“尺度对齐”
-        # 这相当于： Pred_Raw = Pred_Zscore * Raw_Std + Raw_Mean
-        # 这样可以直接消除 Decomposition Sum 和 Raw Data 之间的微小偏差
-        # =======================================================
         inverse_data = self.scaler.inverse_transform(data) 
         
         return inverse_data.reshape(shape)
@@ -505,11 +562,9 @@ class Dataset_PEMS_Decomposed(Dataset):
         self.args = args
         self.mnn = args.mnn
         use_mnn = getattr(args, 'use_mnn', 0)
-        if use_mnn == 1:
-            self.test_mnn = True
-        else:
-            self.test_mnn = False
-        self.k = getattr(self.args, 'selected_k', 2) 
+        self.use_residual = True
+        self.use_mnn = True if use_mnn == 1 else False
+        self.k = self.args.selected_k
         # size [seq_len, label_len, pred_len]
         self.seq_len = size[0]
         self.label_len = size[1]
@@ -556,7 +611,10 @@ class Dataset_PEMS_Decomposed(Dataset):
         len_train = int(train_ratio * len(raw_data))
         val_end = int((train_ratio + valid_ratio) * len_data)
         type_len = {0: len_train, 1: val_end - len_train, 2: len_data - val_end}
-        
+        s0, e0 = 0, len_train
+        s1, e1 = len_train, val_end
+        s2, e2 = val_end, len_data
+
         if len(data_npy) != type_len[self.set_type]:
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
             print(f"Error: NPY len ({len(data_npy)}) != CSV split len ({type_len[self.set_type]}).")
@@ -564,52 +622,105 @@ class Dataset_PEMS_Decomposed(Dataset):
                 
         if self.features == 'S':
             data_npy = data_npy[:, [self.target], :]
+            raw_data = raw_data[:, [self.target]]
         
-        # 4. 合并分量 (Merge Components)
-        T, C, N_IMFS = data_npy.shape
-        data_processed = merge_components(data_npy, self.k)
-  
-        # load mnn data for test
-        if self.set_type == 2 and self.test_mnn:
-            suffix = "_smoothed"
-            mnn_npy_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-            print(f">>>>>>>>>>>>>> Loading MNN data from {mnn_npy_path}")
-            data_mnn = np.load(mnn_npy_path).reshape(-1, 1, self.args.num_imf)
-            assert data_mnn.shape[0] == data_processed.shape[0]
-            data_processed = data_mnn.copy()
+        # 4. 读取分量并且合并为3个分量 (Merge Components)
+        T, C = raw_data.shape
+        if self.use_mnn:
+            if self.set_type == 0:
+                mnn_train_npy_path = os.path.join(self.root_path, f"pred_{base_name}_train_sl{self.seq_len}_{self.mnn}_cd.npy")
+                if os.path.exists(mnn_train_npy_path):
+                    data_mnn_npy_train = np.load(mnn_train_npy_path)
+                    print(f"Loaded MNN data from {mnn_train_npy_path}, shape: {data_mnn_npy_train.shape}")
+                else:
+                    raise FileNotFoundError(f"MNN data not found. Looked for {mnn_train_npy_path}.")
+                print(f">>>>>>>>>>>>> Using MNN data for training")
+                if self.use_residual:
+                    train_raw_data = raw_data[s0:e0]
+                    data_mnn_npy_train = data_mnn_npy_train.reshape(-1, 1, self.args.num_imf - 1)
+                    high = train_raw_data - data_mnn_npy_train.sum(axis=-1)
+                    data_mnn_npy_train = np.concatenate([high.reshape(-1, 1, 1), data_mnn_npy_train], axis=-1)
+                    data_processed = data_mnn_npy_train
+                else:
+                    data_processed = data_mnn_npy_train
 
-         # 5. 标准化 (Scaling)
+            elif self.set_type == 1:
+                # print(f">>>>>>>>>>>>> Using MNN data for validation")
+                data_processed = merge_components(data_npy, self.k)
+
+            if self.set_type == 2: # load mnn data for test
+                k = None if self.args.num_imf == 10 else self.k
+                suffix = "_smoothed"
+                prefix = "all" if k is None else "pred"
+                data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+                # ================== Use Residual Data for Test=====================================
+                data_mnn_test = np.load(data_mnn_test_path)
+                print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+                if self.use_residual:
+                    test_raw_data = raw_data[s2:e2]
+                    if data_mnn_test.shape[-1] == self.args.num_imf - 1:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf - 1)
+                        high = test_raw_data - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test], axis=-1)
+                    elif data_mnn_test.shape[-1] == self.args.num_imf:
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf)
+                        high = test_raw_data - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test[:, :, 1:]], axis=-1)
+                    else:
+                        raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
+                # ================== Use Residual Data for Test=====================================
+                print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
+                data_processed = merge_components(data_npy, self.k)
+
+        else:
+            data_processed = merge_components(data_npy, self.k)
+        
+        print(f">>>>>>>>>>>>> {current_flag_name} {self.use_mnn}: data_processed.shape: {data_processed.shape}")
+
+        # 5. 标准化 (Scaling)
         if self.scale:
             # 加载 Train 数据计算 Mean/Std
-            train_npy_path = os.path.join(self.root_path, f"{base_name}_train_sl{self.seq_len}_cd.npy")
-            
-            # 读取 Train 并筛选特征
-            train_npy = np.load(train_npy_path)         # [T_train, Total_C, K]
-            train_npy = train_npy[:, [self.target], :]  # [T_train, Selected_C, K]
-            
-            # 还原为原始信号值来 Fit Scaler
-            train_sum = np.sum(train_npy, axis=-1) # [T_train, C]
-            self.scaler.fit(train_sum)
-            
+            train_raw_data = raw_data[s0:e0]
+            self.scaler.fit(train_raw_data)
+            # # =======================================================
+            # # 还原为原始信号值来 Fit Scaler
+            # train_npy_path = os.path.join(self.root_path, f"{base_name}_train_sl{self.seq_len}_cd.npy")
+            # train_npy = np.load(train_npy_path)         # [T_train, Total_C, K]
+            # train_npy = train_npy[:, [self.target], :] # [T_train, Selected_C, K]
+            # train_sum = np.sum(train_npy, axis=-1)      # [T_train, C]
+            # # 判断train_sum和train_raw在数值上是否相等
+            # if np.allclose(train_sum, train_raw_data):
+            #     print("train_sum 和 train_raw 数值相等")
+            # else:
+            #     print("train_sum 和 train_raw 数值不相等")
+            # # =======================================================
             # 获取 scaler 的参数，形状适配 [1, C, 1] 以便广播
             # mean: [C], scale: [C]
             mean = self.scaler.mean_.reshape(1, C, 1)
             scale = self.scaler.scale_.reshape(1, C, 1)
-            # 1. High Freq & Mid Freq: 仅除以 scale (假设它们是围绕0波动的)
-            data_processed[:, :, 0:2] = data_processed[:, :, 0:2] / scale
-            # 2. Low Freq (Trend): 减去 Mean 并除以 scale (它承担了基准偏移)
-            data_processed[:, :, 2:] = (data_processed[:, :, 2:] - mean) / scale
+            # 对于前面的分量 (High/Mid Freq): 仅缩放 (Scale)，不平移
+            # 0 到 K-2 是高频/中频
+            data_processed[:, :, :-1] = data_processed[:, :, :-1] / scale
+            # 对于最后一个分量 (Trend/Low Freq): 缩放 + 平移 (减去均值)
+            # 这样 sum(components) = (H/s + ... + (L-m)/s) = (Sum-m)/s = (X-m)/s
+            data_processed[:, :, -1:] = (data_processed[:, :, -1:] - mean) / scale
+          
+            # 对于 MNN 测试数据的处理同理
+            if self.set_type == 2 and self.use_mnn:
+                data_mnn_test[:, :, :-1] = data_mnn_test[:, :, :-1] / scale
+                data_mnn_test[:, :, -1:] = (data_mnn_test[:, :, -1:] - mean) / scale
 
         # 6. 转置为模型需要的格式
         # 通常 Time-Series-Library 是 [T, C]
-        self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
-        self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
-        
-    def __getitem__(self, index):
-        if self.set_type == 2:
-            s_begin = index * 12
+        if self.set_type == 2 and self.use_mnn:
+            self.data_x = data_mnn_test.transpose(2, 0, 1) # [K, T, C]
         else:
-            s_begin = index
+            self.data_x = data_processed.transpose(2, 0, 1) # [K, T, C]
+        self.data_y = data_processed.transpose(2, 0, 1) # [K, T, C]
+        # self.data_stamp = data_stamp
+  
+    def __getitem__(self, index):
+        s_begin = index
         s_end = s_begin + self.seq_len
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len

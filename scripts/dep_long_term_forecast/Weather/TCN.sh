@@ -1,6 +1,7 @@
 export CUDA_VISIBLE_DEVICES=0
 d_model=32
 e_layers=4
+model_id=NDA+TCN
 pred_lens=(96 192 336 720)
 
 for i in "${!pred_lens[@]}"; do
@@ -9,7 +10,7 @@ for i in "${!pred_lens[@]}"; do
         --is_training 1 \
         --use_mnn 0 \
         --data_name Weather_dep \
-        --model_id Weather_96_${pred_lens[$i]} \
+        --model_id $model_id \
         --model TCN \
         --seq_len 96 \
         --label_len 0 \
@@ -35,7 +36,7 @@ for i in "${!pred_lens[@]}"; do
         --is_training 0 \
         --use_mnn 1 \
         --data_name Weather_dep \
-        --model_id Weather_96_${pred_lens[$i]} \
+        --model_id $model_id \
         --model TCN \
         --seq_len 96 \
         --label_len 0 \

@@ -32,9 +32,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
+        if isinstance(self.args.learning_rate, list):
+            if len(self.args.learning_rate) == 0:
+                raise ValueError("args.learning_rate is an empty list.")
+            base_lr = float(self.args.learning_rate[0])
+        else:
+            base_lr = float(self.args.learning_rate)
         model_optim = optim.Adam(
             self.model.parameters(), 
-            lr=self.args.learning_rate)
+            lr=base_lr)
         return model_optim
 
     def _select_criterion(self):
