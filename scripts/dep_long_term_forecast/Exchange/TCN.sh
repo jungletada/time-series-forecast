@@ -7,21 +7,21 @@ dataset=Exchange_dep
 
 pred_lens=(96 192 336 720)
 for pred_len in "${pred_lens[@]}"; do
-    python -u run_dep.py \
-        --task_name long_term_forecast \
-        --is_training 1 \
-        --model $model \
-        --features S \
-        --data_name $dataset \
-        --seq_len $seq_len \
-        --label_len 0 \
-        --pred_len $pred_len \
-        --des 'Exp' \
-        --itr 1 \
-        --learning_rate 0.005 \
-        --train_epochs 10 \
-        --patience 3 \
-        --batch_size 32
+    # python -u run_dep.py \
+    #     --task_name long_term_forecast \
+    #     --is_training 1 \
+    #     --model $model \
+    #     --features S \
+    #     --data_name $dataset \
+    #     --seq_len $seq_len \
+    #     --label_len 0 \
+    #     --pred_len $pred_len \
+    #     --des 'Exp' \
+    #     --itr 1 \
+    #     --learning_rate 0.005 \
+    #     --train_epochs 10 \
+    #     --patience 3 \
+    #     --batch_size 32
 
     python -u run_dep.py \
         --task_name long_term_forecast \

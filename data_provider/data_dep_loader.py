@@ -12,15 +12,12 @@ warnings.filterwarnings('ignore')
 
 
 def merge_components(data_npy, k):
-    """合并分量 (Merge Components)"""
-
+    print(f">>>>>>>>>>>> Merging components with k: {k}")
     if k is None:
         return data_npy
-    
+    # 处理分解数据的通道合并
     T, C, N_IMFS = data_npy.shape
-    # 确保 k 不越界
     k = min(k, N_IMFS - 1)
-    
     if k > 0 and k < N_IMFS - 1: 
         comp1 = np.sum(data_npy[:, :, :k], axis=-1)
         comp2 = data_npy[:, :, k]
@@ -33,10 +30,9 @@ def merge_components(data_npy, k):
         comp1 = np.sum(data_npy[:, :, :N_IMFS - 2], axis=-1)
         comp2 = data_npy[:, :, N_IMFS - 2]
         comp3 = data_npy[:, :, N_IMFS - 1]
-    
-    data_processed = np.stack([comp1, comp2, comp3], axis=-1)
-    
-    return data_processed
+
+    decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
+    return decomp_data
 
 
 def split_residual(data_npy, data_processed):
@@ -564,7 +560,7 @@ class Dataset_PEMS_Decomposed(Dataset):
         use_mnn = getattr(args, 'use_mnn', 0)
         self.use_residual = True
         self.use_mnn = True if use_mnn == 1 else False
-        self.k = self.args.selected_k
+        self.k = 4 # self.args.selected_k
         # size [seq_len, label_len, pred_len]
         self.seq_len = size[0]
         self.label_len = size[1]
@@ -649,19 +645,22 @@ class Dataset_PEMS_Decomposed(Dataset):
                 data_processed = merge_components(data_npy, self.k)
 
             if self.set_type == 2: # load mnn data for test
+                data_processed = merge_components(data_npy, self.k)
                 k = None if self.args.num_imf == 10 else self.k
                 suffix = "_smoothed"
                 prefix = "all" if k is None else "pred"
-                data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+                data_mnn_test_path = os.path.join(self.root_path, f"pred_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
                 # ================== Use Residual Data for Test=====================================
                 data_mnn_test = np.load(data_mnn_test_path)
-                print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+                print(f">>>>>>>>>>>>> Loaded MNN test data from {data_mnn_test_path}, shape: {data_mnn_test.shape}")
                 if self.use_residual:
                     test_raw_data = raw_data[s2:e2]
                     if data_mnn_test.shape[-1] == self.args.num_imf - 1:
-                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf - 1)
-                        high = test_raw_data - data_mnn_test.sum(axis=-1)
+                        data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf - 1) # (T, 1, 2)
+                        high = test_raw_data - data_mnn_test.sum(axis=-1) # (T, 1, 1)
                         data_mnn_test = np.concatenate([high.reshape(-1, 1, 1), data_mnn_test], axis=-1)
+                        # data_mnn_test = data_processed
+                        print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
                     elif data_mnn_test.shape[-1] == self.args.num_imf:
                         data_mnn_test = data_mnn_test.reshape(-1, 1, self.args.num_imf)
                         high = test_raw_data - data_mnn_test.sum(axis=-1)
@@ -669,9 +668,7 @@ class Dataset_PEMS_Decomposed(Dataset):
                     else:
                         raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
                 # ================== Use Residual Data for Test=====================================
-                print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
-                data_processed = merge_components(data_npy, self.k)
-
+                # print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
         else:
             data_processed = merge_components(data_npy, self.k)
         

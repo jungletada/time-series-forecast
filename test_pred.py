@@ -10,22 +10,19 @@ if REPO_ROOT not in sys.path:
 
 from utils.metrics import metric
 
-path1 = 'results/Electricity/long_term_forecast_Electricity_dep_TCN_seq96_pred96_ft(S)_#0/pred.npy'
-path2 = 'results/Electricity/long_term_forecast_Electricity_TimeFilter_seq96_pred96_ft(S)_#0/true.npy'
+path1 = 'dataset/PEMS/gt_merged_PEMS03_test_sl96_cd.npy'
+path2 = 'dataset/PEMS/gt_merged2_PEMS03_test_sl96_cd.npy'
+path3 = 'dataset/PEMS/PEMS03_test_sl96_cd.npy'
 
  # Metrics Calculation
-preds = np.load(path1)
-trues = np.load(path2)
-mae, mse, rmse, mape, mspe = metric(preds, trues)
-print(f"MAE: {mae}, MSE: {mse}, RMSE: {rmse}, MAPE: {mape}, MSPE: {mspe}")
-# true1 = np.load(path1)
-# true2 = np.load(path2)
-
-# print(true1.shape, true2.shape)
-# if np.array_equal(true1, true2):
-#     print("true1 and true2 are exactly equal.")
-# else:
-#     print("true1 and true2 are NOT equal.")
+preds1=np.load(path1)
+preds2 = np.load(path2)
+trues = np.load(path3)
+print(preds1.shape, preds2.shape, trues.shape)
+mae1, mse1, rmse1, mape1, mspe1 = metric(preds1, trues)
+mae2, mse2, rmse2, mape2, mspe2 = metric(preds2, trues)
+print(f"MAE1: {mae1}, MSE1: {mse1}, RMSE1: {rmse1}, MAPE1: {mape1}, MSPE1: {mspe1}")
+print(f"MAE2: {mae2}, MSE2: {mse2}, RMSE2: {rmse2}, MAPE2: {mape2}, MSPE2: {mspe2}")
 
 # # If shapes are the same, proceed
 # true1_flat = true1.reshape(-1)

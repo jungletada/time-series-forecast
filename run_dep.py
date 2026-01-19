@@ -26,14 +26,8 @@ def get_args():
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
     # parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')           
-    parser.add_argument('--model_configs', type=str,nargs=3,
-        default=[
-            'configs/models/model_0.yaml',
-            'configs/models/model_1.yaml',
-            'configs/models/model_2.yaml'
-        ],
-        help='three yaml files for three models'
-    )
+    parser.add_argument('--model_configs', type=str, nargs=3, default=None,
+                        help='three yaml files for three models')
     # data loader
     parser.add_argument('--data_name', type=str, default='ETTh1_dep', help='dataset name')
     parser.add_argument('--features', type=str, default='S',

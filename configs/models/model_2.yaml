@@ -23,8 +23,8 @@ seg_len: 96
 p_hidden_dims: [128, 128]
 p_hidden_layers: 2
 dropout: 0.2
-d_model: 36  # basic model
-e_layers: 4  # basic model
+d_model: 16  # basic model
+e_layers: 3  # basic model
 
 # optimization
 learning_rate: 0.004

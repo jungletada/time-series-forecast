@@ -23,11 +23,11 @@ seg_len: 96
 p_hidden_dims: [128, 128]
 p_hidden_layers: 2
 dropout: 0.3
-d_model: 24  # basic model
+d_model: 32  # basic model
 e_layers: 3  # basic model
 
 # optimization
-learning_rate: 0.008
+learning_rate: 0.004
 des: test
 loss: MSE
 lradj: type1

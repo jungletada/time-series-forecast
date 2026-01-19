@@ -258,7 +258,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
                     visual(
-                        label, prediction, 
+                        label, 
+                        prediction, 
                         horizon_len,
                         pdf_save_path, 
                         title=setting['model_id']) # setting['model_id'])

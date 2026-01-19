@@ -18,24 +18,28 @@ warnings.filterwarnings('ignore')
 class Exp_Dep_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
         # 定义分量名称，用于日志打印
-        super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
         self.logger = logger
         self.logger.info(f'Initializing Exp_Dep_Long_Term_Forecast (Training K={args.num_imf} Independent Models).')
         self.logger.info(f'Number of components: {args.num_imf}')
 
+        super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
+        
     def _build_model(self):
         models = []
         if hasattr(self.args, 'model_args_list'):
-            for model_args in self.args.model_args_list:
+            for i, model_args in enumerate(self.args.model_args_list):
+                # self.logger.info(f'Building model {i} with args: {model_args}')
                 model = self.model_dict[self.args.model].Model(model_args).float()
                 if self.args.use_multi_gpu and self.args.use_gpu:
                     model = nn.DataParallel(model, device_ids=self.args.device_ids)
+                # self.logger.info(f'Model {i} built successfully\n\n{model}')
                 models.append(model)
         else:
             for i in range(self.args.num_imf):
                 model = self.model_dict[self.args.model].Model(self.args).float()
                 if self.args.use_multi_gpu and self.args.use_gpu:
                     model = nn.DataParallel(model, device_ids=self.args.device_ids)
+                # self.logger.info(f'Model {i} built successfully\n\n{model}')
                 models.append(model)
         return nn.ModuleList(models)
 
