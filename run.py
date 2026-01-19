@@ -25,7 +25,7 @@ def get_args():
     parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
-
+    parser.add_argument('--visualize', type=int, default=1, help='visualize')
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
     parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')

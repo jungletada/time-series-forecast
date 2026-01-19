@@ -287,19 +287,18 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                         input_x = input_x * scale + mean
                     
                     # 3. 拼接与绘图
-                    # 取第一个样本 [0, :, -1] (假设可视化最后一个变量)
                     gt_data = true_sum[0, :, -1]
                     pred_data = pred_sum[0, :, -1]
                     input_data = input_x[0, :, -1]
-                    
-                    horizon_len = len(pred_data)
+                    # print(f">>>>>>>>>>>>> input_data.shape: {input_data.shape}, gt_data.shape: {gt_data.shape}, pred_data.shape: {pred_data.shape}")
+                    horizon_len = len(input_data)
                     # 拼接 Input 和 Output
                     label = np.concatenate((input_data, gt_data), axis=0)
                     prediction = np.concatenate((input_data, pred_data), axis=0)
-                    
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
                     visual(
-                        label, prediction, 
+                        label, 
+                        prediction, 
                         horizon_len,
                         pdf_save_path, 
                         title=self.args.model_id

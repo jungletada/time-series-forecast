@@ -231,7 +231,6 @@ def visual(true, preds, horizon_len=None, name='./pic/test.pdf', title=None):
             color='#1E90FF',
             alpha=1.0
         )
-
         plt.plot(
             np.arange(split, total_len),
             preds[split:],

@@ -238,15 +238,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 pred = outputs
                 true = batch_y
 
-                # rng = np.random.default_rng(56)
-                # alpha = rng.uniform(0.24, 0.30, size=pred.shape).astype(pred.dtype, copy=False)
-                # noise = rng.normal(loc=0.001, scale=0.008, size=pred.shape).astype(pred.dtype, copy=False)
-                # pred = (1.0 - alpha) * pred + alpha * true + noise
-
                 preds.append(pred)
                 trues.append(true)
 
-                if i % 2 == 0:
+                if self.args.visualize == 1 and i % 2 == 0:
                     input = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
                         # print(f">>>>>>>>>>>>> test_data.scale: {test_data.scale}, self.args.inverse: {self.args.inverse}")
@@ -254,6 +249,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                         input = test_data.inverse_transform(input.reshape(shape[0] * shape[1], -1)).reshape(shape)
                     
                     horizon_len = len(input[0, :, -1])
+                    # print(f">>>>>>>>>>>>> input.shape: {input[0, :, -1].shape}")
                     label = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
@@ -262,7 +258,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                         prediction, 
                         horizon_len,
                         pdf_save_path, 
-                        title=setting['model_id']) # setting['model_id'])
+                        title=self.args.model_id) # setting['model_id'])
 
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
