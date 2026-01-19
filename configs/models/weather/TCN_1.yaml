@@ -23,11 +23,23 @@ seg_len: 96
 p_hidden_dims: [128, 128]
 p_hidden_layers: 2
 
-d_model: 36
-e_layers: 4
+# predict_len=[720]
+# d_model: 24 
+# e_layers: 4  
+
+# # predict_len=[336]
+d_model: 24 
+e_layers: 4  
+
+# # predict_len=[192]
+# d_model: 48 
+# e_layers: 4  
+# # predict_len=[96]
+# d_model: 48 
+# e_layers: 4  
 
 # optimization
-learning_rate: 0.002
+learning_rate: 0.005
 des: test
 loss: MSE
 lradj: type1
