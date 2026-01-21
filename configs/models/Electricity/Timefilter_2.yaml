@@ -1,0 +1,95 @@
+# ----- model define -----
+expand: 2
+d_conv: 4
+top_k: 5
+num_kernels: 6
+n_heads: 8
+d_layers: 1
+
+moving_avg: 25
+factor: 1
+distil: true 
+embed: timeF
+activation: gelu
+channel_independence: 1
+decomp_method: moving_avg
+
+down_sampling_layers: 0
+down_sampling_window: 1
+down_sampling_method: null
+seg_len: 96
+# de-stationary projector params
+p_hidden_dims: [128, 128]
+p_hidden_layers: 2
+
+# # predict_len=[720]
+dropout: 0.4
+d_model: 512
+e_layers: 2
+d_layers: 1
+d_ff: 512
+patch_len: 32
+use_norm: 0
+top_p: 0.0
+factor: 3
+pos: 0
+learning_rate: 0.001
+lradj: cosine
+
+# # predict_len=[336]
+# dropout: 0.8
+# d_model: 128
+# e_layers: 2
+# d_layers: 1
+# d_ff: 512
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
+
+# # predict_len=[192]
+# dropout: 0.4
+# d_model: 128
+# e_layers: 2
+# d_layers: 1
+# d_ff: 1024
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
+
+# predict_len=[96]
+dropout: 0.4
+d_model: 128
+e_layers: 2
+d_layers: 1
+d_ff: 1024
+patch_len: 2
+use_norm: 0
+top_p: 0.0
+factor: 3
+pos: 0
+learning_rate: 0.001
+lradj: cosine
+# optimization
+des: test
+loss: MSE
+
+use_amp: false        # 对应 action='store_true'
+
+# GCN
+node_dim: 10
+gcn_depth: 2
+gcn_dropout: 0.3
+propalpha: 0.3
+conv_channel: 32
+skip_channel: 32
+individual: false      # 对应 action='store_true'
+
+

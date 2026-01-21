@@ -1,8 +1,3 @@
-export CUDA_VISIBLE_DEVICES=0
-#   --enc_in 7 \
-#   --dec_in 7 \
-#   --c_out 7 \
-
 model_name=TimeFilter
 pred_lens=(96 192 336 720)
 dropout=(0.3 0.5 0.5 0.7)

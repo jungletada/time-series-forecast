@@ -125,7 +125,8 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 for opt in model_optimizers: opt.zero_grad()
                 
                 batch_total_loss = 0
-                
+                loss_imfs = []
+
                 # --- Independent Forward & Backward ---
                 for comp_idx in range(self.args.num_imf):
                     outputs, true_y = self._process_one_batch(
@@ -137,14 +138,15 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     )
                     
                     loss = criterion(outputs, true_y)
-                    
+                    loss_imfs.append(loss.item())
                     if self.args.use_amp:
                         scaler.scale(loss).backward()
                     else:
                         loss.backward()
-                        
+                    
+                    # Use weight for this IMF/component
                     batch_total_loss += loss.item()
-                
+                    
                 # Step all optimizers
                 if self.args.use_amp:
                     for opt in model_optimizers:
@@ -157,11 +159,11 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 train_loss.append(batch_total_loss / self.args.num_imf)
 
                 if (iter_step + 1) % self.args.print_freq == 0:
-                    self.logger.info("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(
-                        iter_step + 1, epoch + 1, batch_total_loss / self.args.num_imf))
+                    self.logger.info(" iters: {0}, epoch: {1} | loss: {2:.7f} | loss_imfs[0]: {3:.7f} | loss_imfs[1]: {4:.7f} | loss_imfs[2]: {5:.7f}".format(
+                        iter_step + 1, epoch + 1, batch_total_loss / self.args.num_imf, loss_imfs[0], loss_imfs[1], loss_imfs[2]))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - iter_step)
-                    self.logger.info('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+                    self.logger.info(" speed: {:.4f}s/iter; left time: {:.4f}s".format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 

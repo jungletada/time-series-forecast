@@ -169,8 +169,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             if early_stopping.early_stop:
                 self.logger.info("Early stopping...")
                 break
-
-            adjust_learning_rate(model_optim, epoch + 1, self.args)
+            if isinstance(self.args.learning_rate, list):
+                base_lr = float(self.args.learning_rate[0])
+            else:
+                base_lr = float(self.args.learning_rate)
+            
+            adjust_learning_rate(model_optim, epoch + 1, base_lr, self.args)
 
         best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
         self.model.load_state_dict(torch.load(best_model_path))

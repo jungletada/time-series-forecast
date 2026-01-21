@@ -1,0 +1,63 @@
+# predict_len=[720]
+n_heads: 8
+dropout: 0.3
+d_model: 64
+e_layers: 3
+d_layers: 1
+d_ff: 128
+alpha: 0.1
+patch_len: 16
+use_norm: 0
+top_p: 0.2
+factor: 3
+pos: 0
+learning_rate: 0.01
+lradj: cosine
+
+# # predict_len=[336]
+# dropout: 0.8
+# d_model: 128
+# e_layers: 2
+# d_layers: 1
+# d_ff: 512
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
+
+# # predict_len=[192]
+# dropout: 0.4
+# d_model: 128
+# e_layers: 2
+# d_layers: 1
+# d_ff: 1024
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
+
+# # predict_len=[96]
+# dropout: 0.4
+# d_model: 128
+# e_layers: 2
+# d_layers: 1
+# d_ff: 1024
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
+
+# optimization
+des: test
+loss: MSE
+
+use_amp: false

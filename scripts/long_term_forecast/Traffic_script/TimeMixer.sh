@@ -1,5 +1,3 @@
-export CUDA_VISIBLE_DEVICES=0
-
 model_name=TimeMixer
 seq_len=96
 e_layers=3
@@ -10,9 +8,7 @@ d_model=32
 d_ff=64
 batch_size=8
 pred_lens=(96 192 336 720)
-# --enc_in 862 \
-# --dec_in 862 \
-# --c_out 862 \
+
 
 for i in "${!pred_lens[@]}"; do
 python -u run.py \
@@ -22,10 +18,6 @@ python -u run.py \
   --model_id traffic_$seq_len'_'${pred_lens[$i]} \
   --model $model_name \
   --features S \
-  --target OT \
-  --enc_in 1 \
-  --dec_in 1 \
-  --c_out 1 \
   --seq_len $seq_len \
   --label_len 0 \
   --pred_len ${pred_lens[$i]} \

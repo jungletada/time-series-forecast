@@ -1,0 +1,12 @@
+# predict_len=[720]
+d_model: 36
+e_layers: 4
+dropout: 0.3
+lradj: type1
+learning_rate: 0.004
+kernel_size: 6
+
+des: test
+loss: MSE
+
+use_amp: false

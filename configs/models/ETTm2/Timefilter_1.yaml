@@ -1,0 +1,15 @@
+# predict_len=[720]
+n_heads: 8
+dropout: 0.5
+e_layers: 4
+d_layers: 2
+factor: 3
+d_model: 64
+d_ff: 256
+alpha: 0.1
+patch_len: 4
+use_norm: 0
+top_p: 0.0
+pos: 0
+learning_rate: 0.00001
+lradj: cosine

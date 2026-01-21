@@ -85,7 +85,7 @@ class Model(nn.Module):
         
         # TCN Parameters
         self.num_channels = [configs.d_model] * configs.e_layers  # Stack layers with d_model depth
-        self.kernel_size = 3 # You can make this configurable via configs if needed
+        self.kernel_size = configs.kernel_size
         self.dropout = configs.dropout
 
         # Embedding Layer

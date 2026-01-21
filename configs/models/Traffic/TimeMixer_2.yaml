@@ -1,0 +1,56 @@
+# ----- model define -----
+expand: 2
+d_conv: 4
+top_k: 5
+num_kernels: 6
+n_heads: 8
+moving_avg: 25
+distil: true 
+
+embed: timeF
+activation: gelu
+channel_independence: 1
+decomp_method: moving_avg
+use_norm: 1
+
+seg_len: 96
+
+# de-stationary projector params
+p_hidden_dims: [128, 128]
+p_hidden_layers: 2
+dropout: 0.2
+
+######  TimeMixer
+# predict_len=[720]
+e_layers: 3
+d_model: 32
+d_layers: 1
+factor: 3
+d_ff: 64
+down_sampling_layers: 3
+down_sampling_window: 2
+down_sampling_method: avg 
+learning_rate: 0.001
+# optimization
+
+des: test
+loss: MSE
+lradj: type1
+use_amp: false
+
+# TimeXer
+patch_len: 16
+
+# GCN
+node_dim: 10
+gcn_depth: 2
+gcn_dropout: 0.3
+propalpha: 0.3
+conv_channel: 32
+skip_channel: 32
+individual: false
+
+# TimeFilter
+alpha: 0.1
+top_p: 0.5
+pos: 1
