@@ -32,8 +32,17 @@ def merge_components(raw_signal, data_decomposed, k):
     decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
     return decomp_data
 
+import os
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from joblib import Parallel, delayed
+from tqdm import tqdm
+from PyEMD import EMD  # 假设你使用的是 PyEMD
+
 class LongTermDecomposition:
-    def __init__(self, data_type, root_path, data_file, selected_k=2, max_imfs=15, seq_len=96, scale=False):
+    def __init__(self, data_type, root_path, data_file, 
+                 selected_k=2, max_imfs=15, seq_len=96, scale=True):
         self.data_type = data_type
         self.root_path = root_path
         self.data_file = data_file
@@ -41,16 +50,17 @@ class LongTermDecomposition:
         self.max_imfs = max_imfs
         self.seq_len = seq_len
         self.selected_k = selected_k
-        self.scale = scale # 是否在分解前归一化，默认不归一化
+        self.scale = scale  # 是否在分解前归一化
         
         self.emd = EMD()
         self.emd.MAX_ITERATION = 200 
         
-        # 用于归一化的 Scaler
-        if scale:
+        # 初始化 Scaler
+        if self.scale:
             self.scaler = StandardScaler()
         else:
-            self.scaler = None # 不归一化
+            self.scaler = None 
+
         print(f"   Decomposition: {self.file_path}\n"
               f"   max_imfs: {self.max_imfs}\n"
               f"   seq_len: {self.seq_len}\n"
@@ -58,7 +68,6 @@ class LongTermDecomposition:
 
     def _get_borders(self, total_len):
         num_train = int(total_len * 0.7)
-        num_train_cut = int(total_len * 0.35)
         num_test = int(total_len  * 0.2)
         num_val = total_len - num_train - num_test
 
@@ -73,7 +82,7 @@ class LongTermDecomposition:
                 'end':   [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
             }
         elif self.data_type == 'custom':
-            print(f"num_train: {num_train}, num_train_cut: {num_train_cut}, num_test: {num_test}, num_val: {num_val}")
+            # print(f"num_train: {num_train}, num_test: {num_test}, num_val: {num_val}")
             border = {
                 'start': [0, num_train - self.seq_len, total_len - num_test - self.seq_len],
                 'end':   [num_train, num_train + num_val, total_len]
@@ -91,7 +100,7 @@ class LongTermDecomposition:
             result = np.zeros((T, self.max_imfs))
             if n_imfs >= self.max_imfs: 
                 result[:, :self.max_imfs-1] = imfs[:, :self.max_imfs-1]
-                result[:, self.max_imfs-1] = np.sum(imfs[:, self.max_imfs-1:], axis=1)# 残差求和放入最后一个分量
+                result[:, self.max_imfs-1] = np.sum(imfs[:, self.max_imfs-1:], axis=1)  
             else:
                 result[:, :n_imfs] = imfs
             return result
@@ -100,19 +109,18 @@ class LongTermDecomposition:
             return np.zeros((len(series_values), self.max_imfs))
 
     def _process_column(self, full_series, border):
+        # 注意：full_series 已经是归一化后的数据了（如果 scale=True）
+        
         # 1. Train Set
         train_raw = full_series[border['start'][0]:border['end'][0]]
-
         train_decomp = self._decompose_and_pad(train_raw)
         
-        # 2. Validation Set (Train + Val 的历史信息)
-        val_raw = full_series[0:border['end'][1]] # 总是从 0 开始以保持索引对齐
+        # 2. Validation Set
+        val_raw = full_series[0:border['end'][1]] 
         val_decomp_full = self._decompose_and_pad(val_raw)
-        # val_decomp_full 的长度为 border['end'][1]
-        # 我们切取出 [border['start'][1] : border['end'][1]]
         val_decomp_cd = val_decomp_full[border['start'][1]:border['end'][1]]
         
-        # 3. Test Set (全部历史信息)
+        # 3. Test Set
         full_decomp = self._decompose_and_pad(full_series)
         test_decomp_cd = full_decomp[border['start'][2]:border['end'][2]]
         
@@ -132,22 +140,32 @@ class LongTermDecomposition:
         total_len = len(df)
         border = self._get_borders(total_len)
         
-        # # --- 数据标准化 (Fit on Train) ---
-        # if self.scale:
-        #     train_end = border['end'][0]
-        #     self.scaler.fit(data_values[:train_end])
-        #     data_values = self.scaler.transform(data_values)
-        #     print("  > Data Scaled (Fit on Train set), warning: data will be scaled after decomposition.")
-
+        # ================== 修改部分开始 ==================
+        # --- 数据标准化 (Fit on Train, Transform All) ---
+        if self.scale:
+            print("  > Executing Standardization (Fit on Train set)...")
+            # 获取训练集的结束索引
+            train_start_idx = border['start'][0] # 通常是0，但为了严谨使用 border
+            train_end_idx = border['end'][0]
+            
+            # 1. 仅在训练集上 fit
+            train_data_for_fit = data_values[train_start_idx:train_end_idx, :]
+            self.scaler.fit(train_data_for_fit)
+            print(f"  > Scaler fitted on range [{train_start_idx}:{train_end_idx}]")
+            
+            # 2. 对整个数据集 transform
+            # 这样后续 _process_column 切分出来的 train/val/test 都是归一化过的
+            data_values = self.scaler.transform(data_values)
+            print("  > Whole dataset transformed.")
+        else:
+            print("  > Skipping scaling (using raw data).")
+        # ================== 修改部分结束 ==================
         print(f"  > Borders: Train[0:{border['end'][0]}], \n"
               f"  > Val[{border['start'][1]}:{border['end'][1]}], \n"
               f"  > Test[{border['start'][2]}:{border['end'][2]}]")
         
-        # 并行处理
-        print(f"data_values: {data_values.shape}")
-        train_raw = data_values[border['start'][0]:border['end'][0], :]
-        val_raw = data_values[border['start'][1]:border['end'][1], :]
-        test_raw = data_values[border['start'][2]:border['end'][2], :]
+        # 此时 data_values 已经是处理过的数据，传入 _process_column 直接分解即可
+        print(f"data_values shape: {data_values.shape}")
         
         results = Parallel(n_jobs=-1)(
             delayed(self._process_column)(data_values[:, i], border) 
@@ -168,51 +186,9 @@ class LongTermDecomposition:
         print(f"val_tensor: {val_tensor.shape}")
         print(f"test_tensor: {test_tensor.shape}")
 
-        # merged_train = merge_components(train_raw, train_tensor, self.selected_k)
-        # merged_val = merge_components(val_raw, val_tensor, self.selected_k)
-        # merged_test = merge_components(test_raw, test_tensor, self.selected_k)
-        
-        # merged_train_sum = np.sum(merged_train, axis=-1)
-        # merged_val_sum = np.sum(merged_val, axis=-1)
-        # merged_test_sum = np.sum(merged_test, axis=-1)
-        # print(f"merged_train_sum: {merged_train_sum.shape}")
-        # print(f"merged_val_sum: {merged_val_sum.shape}")
-        # print(f"merged_test_sum: {merged_test_sum.shape}")
-
         base_name = self.file_path.replace('.csv', '')
-        suffix = f"_sl{self.seq_len}_cd" # 建议文件名带上 seq_len 防止混淆
-        
-        # # Visualization helper
-        # def plot_and_save(true_array, sum_array, split, base_name, suffix):
-        #     plt.figure(figsize=(12,6))
-        #     # Plot only the first channel if multidimensional for clarity
-        #     arr1 = true_array[:,0] if true_array.ndim > 1 else true_array
-        #     arr2 = sum_array[:,0] if sum_array.ndim > 1 else sum_array
-        #     plt.plot(arr1, label=f"{split}_raw", alpha=0.7)
-        #     plt.plot(arr2, label=f"{split}_merged_sum", alpha=0.7)
-        #     plt.plot(arr1 - arr2, label=f"{split}_diff", alpha=0.7)
-        #     diff = arr1 - arr2
-        #     if np.allclose(diff, 0):
-        #         print(">>>>>>>>>>>>>>> equal")
-        #     else:
-        #         print(">>>>>>>>>>>>>>> error")
-        #     plt.legend()
-        #     plt.title(f"{split} raw vs merged_sum")
-        #     plt.xlabel('Time')
-        #     plt.ylabel('Value')
-        #     save_path = f"{base_name}_{split}_compare{suffix}.png"
-        #     plt.savefig(save_path, dpi=150)
-        #     plt.close()
-        #     print(f"  > Saved {split} comparison plot to {save_path}")
-
-        # plot_and_save(train_raw, merged_train_sum, 'train', base_name, suffix)
-        # plot_and_save(val_raw, merged_val_sum, 'val', base_name, suffix)
-        # plot_and_save(test_raw, merged_test_sum, 'test', base_name, suffix)
-
-        # Optionally keep the original assertions for safety
-        # assert np.allclose(merged_train_sum, train_raw)
-        # assert np.allclose(merged_val_sum, val_raw)
-        # assert np.allclose(merged_test_sum, test_raw)
+        scale_suffix = "_scaled" if self.scale else "" 
+        suffix = f"_sl{self.seq_len}{scale_suffix}_cd" 
 
         train_save_path = f"{base_name}_train{suffix}.npy"
         val_save_path = f"{base_name}_val{suffix}.npy"
@@ -221,17 +197,10 @@ class LongTermDecomposition:
         np.save(train_save_path, train_tensor)
         np.save(val_save_path, val_tensor)
         np.save(test_save_path,  test_tensor)
-    
-        # np.save(f"{base_name}_train_merged{suffix}.npy", merged_train)
-        # np.save(f"{base_name}_val_merged{suffix}.npy", merged_val)
-        # np.save(f"{base_name}_test_merged{suffix}.npy", merged_test)
 
         print(f"  > Saved Train {train_tensor.shape} to {train_save_path},\n" 
               f"  > Saved Val {val_tensor.shape} to {val_save_path},\n" 
               f"  > Saved Test {test_tensor.shape} to {test_save_path}\n")
-            #   f"  > Saved Train Merged {merged_train.shape} to {base_name}_train_merged{suffix}.npy,\n" 
-            #   f"  > Saved Val Merged {merged_val.shape} to {base_name}_val_merged{suffix}.npy,\n" 
-            #   f"  > Saved Test Merged {merged_test.shape} to {base_name}_test_merged{suffix}.npy\n")
 
 class ShortTermDecomposition:
     def __init__(self, data_type, root_path, data_file, max_imfs=12, seq_len=96, scale=False):
@@ -389,17 +358,16 @@ def decompose_long_term_data(data_root, K_IMFS):
             decomposer.run()
  
 
-
 if __name__ == "__main__":
     K_IMFS = 3
     data_root = 'dataset'
-    # decompose_long_term_data(data_root, K_IMFS)
-    for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
-        decomposer = ShortTermDecomposition(
-            data_type='PEMS', 
-            root_path=os.path.join(data_root, 'PEMS'),
-            data_file=data_file,
-            max_imfs=K_IMFS,
-            seq_len=96,
-            scale=False)
-        decomposer.run()
+    decompose_long_term_data(data_root, K_IMFS)
+    # for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
+    #     decomposer = ShortTermDecomposition(
+    #         data_type='PEMS', 
+    #         root_path=os.path.join(data_root, 'PEMS'),
+    #         data_file=data_file,
+    #         max_imfs=K_IMFS,
+    #         seq_len=96,
+    #         scale=False)
+    #     decomposer.run()
