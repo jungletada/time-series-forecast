@@ -10,7 +10,6 @@ from data_provider.m4 import M4Dataset, M4Meta
 from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
-
 def merge_components(data_npy, k):
     print(f">>>>>>>>>>>> Merging components with k: {k}")
     if k is None:
@@ -33,7 +32,6 @@ def merge_components(data_npy, k):
 
     decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
     return decomp_data
-
 
 def split_residual(data_npy, data_processed):
     """Ablation Split residual signal from the processed data"""

@@ -7,21 +7,26 @@ from layers.StandardNorm import Normalize
 from layers.TimeFilter_layers import TimeFilter_Backbone
 
 class PatchEmbed(nn.Module):
-    def __init__(self, dim, patch_len, stride=None, pos=True):
+    def __init__(self, dim, patch_len, stride=None, pos=True, decomp_k=3):
         super().__init__()
         self.patch_len = patch_len
         self.stride = patch_len if stride is None else stride
-        self.patch_proj = nn.Linear(self.patch_len, dim)
+        # 关键修改：输入维度从 patch_len 变为 patch_len * K
+        self.patch_proj = nn.Linear(self.patch_len * decomp_k, dim)
         self.pos = pos
         if self.pos:
             pos_emb_theta = 10000
             self.pe = PositionalEmbedding(dim, pos_emb_theta)
 
     def forward(self, x):
-        # x: [B, N, T]
-        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
-        # x: [B, N*L, P]
-        x = self.patch_proj(x)  # [B, N*L, D]
+        # x: [B, N_total, K]  (N_total 是展平后的总时间点数 C*T)
+        # 1. Unfold 展开时间维度: [B, Num_Patches, Patch_Len, K]
+        # 注意：unfold 作用在维度 1 (N_total)，类似于滑动窗口
+        x = x.unfold(dimension=1, size=self.patch_len, step=self.stride)
+        # 2. Flatten Patch 和 K 维度: [B, Num_Patches, Patch_Len * K]
+        x = x.flatten(start_dim=-2) 
+        # 3. Projection: [B, Num_Patches, D]
+        x = self.patch_proj(x)
         if self.pos:
             x += self.pe(x)
         return x
@@ -30,6 +35,7 @@ class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()
         self.args = configs
+        self.decomp_k = configs.decomp_k if configs.decomp_k is not None else 1
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
@@ -45,7 +51,7 @@ class Model(nn.Module):
         self.top_p = 0.5 if configs.top_p is None else configs.top_p
 
         # embed
-        self.patch_embed = PatchEmbed(self.dim, self.patch_len, self.stride, configs.pos)
+        self.patch_embed = PatchEmbed(self.dim, self.patch_len, self.stride, configs.pos, self.decomp_k)
 
         # TimeFilter.sh Backbone
         self.backbone = TimeFilter_Backbone(self.dim, self.n_vars, self.d_ff,
