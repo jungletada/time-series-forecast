@@ -1,7 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
-
 model_name=TimeMixer
-
 seq_len=96
 e_layers=2
 down_sampling_layers=3
@@ -18,16 +15,13 @@ for i in "${!pred_lens[@]}"; do
       --task_name long_term_forecast \
       --is_training 1 \
       --data_name ETTh1 \
-      --model_id ETTh1_$seq_len'_'${pred_lens[$i]} \
+      --model_id $model_name \
       --model $model_name \
       --seq_len $seq_len \
       --label_len 0 \
       --pred_len ${pred_lens[$i]} \
       --e_layers $e_layers \
-      --features S \
-      --target OT \
-      --enc_in 1 \
-      --c_out 1 \
+      --features M \
       --des 'Exp' \
       --itr 1 \
       --d_model $d_model \
@@ -36,35 +30,7 @@ for i in "${!pred_lens[@]}"; do
       --train_epochs $train_epochs \
       --patience $patience \
       --batch_size 128 \
-      --down_sampling_layers $down_sampling_layers \
       --down_sampling_method avg \
+      --down_sampling_layers $down_sampling_layers \
       --down_sampling_window $down_sampling_window
 done
-
-# for i in "${!pred_lens[@]}"; do
-#   python -u run.py \
-#       --task_name long_term_forecast \
-#       --is_training 1 \
-#       --data_name ETTh1 \
-#       --model_id ETTh1_$seq_len'_'${pred_lens[$i]} \
-#       --model $model_name \
-#       --seq_len $seq_len \
-#       --label_len 0 \
-#       --pred_len ${pred_lens[$i]} \
-#       --e_layers $e_layers \
-#       --features S \
-#       --target OT \
-#       --enc_in 1 \
-#       --c_out 1 \
-#       --des 'Exp' \
-#       --itr 1 \
-#       --d_model $d_model \
-#       --d_ff $d_ff \
-#       --learning_rate $learning_rate \
-#       --train_epochs $train_epochs \
-#       --patience $patience \
-#       --batch_size 128 \
-#       --down_sampling_layers $down_sampling_layers \
-#       --down_sampling_method avg \
-#       --down_sampling_window $down_sampling_window
-# done

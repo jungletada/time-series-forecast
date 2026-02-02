@@ -25,10 +25,14 @@ def get_args():
     parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
+    parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
+    parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
+    parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
     parser.add_argument('--visualize', type=int, default=1, help='visualize')
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
     parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')
+    parser.add_argument('--decomp_k', type=int, default=3, help='decomposition k')
     parser.add_argument('--data_name', type=str, default='ETTh1', help='dataset name')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; " \
@@ -97,6 +101,7 @@ def get_args():
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='test', help='exp description')
     parser.add_argument('--loss', type=str, default='MSE', help='loss function')
+    parser.add_argument('--moe_weight', type=float, default=0.05, help='moe loss weight')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 

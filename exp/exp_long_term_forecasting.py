@@ -47,40 +47,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         criterion = nn.MSELoss()
         return criterion
  
-    def vali(self, vali_data, vali_loader, criterion):
-        total_loss = []
-        self.model.eval()
-        with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
-                batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float()
-
-                batch_x_mark = batch_x_mark.float().to(self.device)
-                batch_y_mark = batch_y_mark.float().to(self.device)
-
-                # decoder input
-                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
-                dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
-                # encoder - decoder
-                if self.args.use_amp:
-                    with torch.amp.autocast('cuda'):
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                else:
-                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-
-                pred = outputs.detach()
-                true = batch_y.detach()
-
-                loss = criterion(pred, true)
-
-                total_loss.append(loss.item())
-        total_loss = np.average(total_loss)
-        self.model.train()
-        return total_loss
-
     def train(self, setting):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
@@ -119,20 +85,25 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
                 # encoder - decoder
+                moe_loss = 0.0
                 if self.args.use_amp:
                     with torch.amp.autocast('cuda'):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        if isinstance(outputs, tuple):
+                            outputs, moe_loss = outputs
                         f_dim = -1 if self.args.features == 'MS' else 0
                         outputs = outputs[:, -self.args.pred_len:, f_dim:]
                         batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                        loss = criterion(outputs, batch_y)
+                        loss = criterion(outputs, batch_y) + moe_loss * self.args.moe_weight
                         train_loss.append(loss.item())
                 else:
                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    if isinstance(outputs, tuple):
+                        outputs, moe_loss = outputs
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                    loss = criterion(outputs, batch_y)
+                    loss = criterion(outputs, batch_y) + moe_loss * self.args.moe_weight
                     train_loss.append(loss.item())
 
                 if (iter_step + 1) % self.args.print_freq == 0:
@@ -191,20 +162,128 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         preds = []
         trues = []
         result_path = os.path.join(self.args.results, setting['save_dir'])
-        visual_path = os.path.join(self.args.results, setting['save_dir'], 'visual')
         if not os.path.exists(result_path):
             os.makedirs(result_path)
-        if not os.path.exists(visual_path):
-            os.makedirs(visual_path)
-        # --- Added Initialization ---
-        inference_time = 0
-        # ----------------------------
 
         self.model.eval()
+        inference_time = 0
+        
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
+                batch_x_mark = batch_x_mark.float().to(self.device)
+                batch_y_mark = batch_y_mark.float().to(self.device)
+
+                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
+                dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+
+                start_time = time.time()
+                if self.args.use_amp:
+                    with torch.amp.autocast('cuda'):
+                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                else:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                
+                if isinstance(outputs, tuple):
+                    outputs, moe_loss = outputs
+                    
+                inference_time += time.time() - start_time
+
+                f_dim = -1 if self.args.features == 'MS' else 0
+                
+                # Slicing
+                outputs = outputs[:, -self.args.pred_len:, :] # [B, L, C]
+                batch_y = batch_y[:, -self.args.pred_len:, :] # [B, L, C]
+                
+                # CPU Transfer
+                outputs = outputs.detach().cpu().numpy()
+                batch_y = batch_y.detach().cpu().numpy()
+
+                # Inverse Transform
+                # 针对你的 Data Loader，inverse_transform 逻辑必须非常小心
+                if test_data.scale and self.args.inverse:
+                    shape = batch_y.shape # [B, L, C]
+                    
+                    # 1. Reshape for Scaler: [B*L, C]
+                    outputs_2d = outputs.reshape(-1, shape[-1])
+                    batch_y_2d = batch_y.reshape(-1, shape[-1])
+                    
+                    # 2. Check Dimensions
+                    # Scaler.mean_ shape is [C]. Ensure outputs_2d.shape[1] == C.
+                    # 如果这步报错，说明 Data Loader 的 Target 列选择和 Model 输出列不匹配
+                    try:
+                        outputs_inv = test_data.inverse_transform(outputs_2d)
+                        batch_y_inv = test_data.inverse_transform(batch_y_2d)
+                    except ValueError as e:
+                        # 容错：如果是 MS 任务，可能输出维度是 1，但 scaler 是 C
+                        # 这种情况下通常不做 tile，直接跳过或者只反归一化第0列（视 scaler 逻辑而定）
+                        print(f"Inverse transform error: {e}. Output shape {outputs_2d.shape}")
+                        outputs_inv = outputs_2d # Fallback
+                        batch_y_inv = batch_y_2d
+                    
+                    # 3. Reshape back
+                    outputs = outputs_inv.reshape(shape)
+                    batch_y = batch_y_inv.reshape(shape)
+
+                # Final Selection for Metrics
+                # MS: 选最后一列; S/M: 选所有 (从0开始)
+                # 注意：上面 inverse_transform 已经是全量数据了，这里再切片一次确保 metric 计算对
+                if self.args.features == 'MS':
+                    pred = outputs[:, :, -1:]
+                    true = batch_y[:, :, -1:]
+                else:
+                    pred = outputs
+                    true = batch_y
+
+                preds.append(pred)
+                trues.append(true)
+                
+                # if self.args.visualize == 1 and i % 2 == 0:
+                #     input = batch_x.detach().cpu().numpy()
+                #     if test_data.scale and self.args.inverse:
+                #         # print(f">>>>>>>>>>>>> test_data.scale: {test_data.scale}, self.args.inverse: {self.args.inverse}")
+                #         shape = input.shape
+                #         input = test_data.inverse_transform(input.reshape(shape[0] * shape[1], -1)).reshape(shape)
+                    
+                #     horizon_len = len(input[0, :, -1])
+                #     # print(f">>>>>>>>>>>>> input.shape: {input[0, :, -1].shape}")
+                #     label = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+                #     prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
+                #     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
+                #     visual(
+                #         label, 
+                #         prediction, 
+                #         horizon_len,
+                #         pdf_save_path, 
+                #         title=self.args.model_id) # setting['model_id'])
+                
+        preds = np.concatenate(preds, axis=0)
+        trues = np.concatenate(trues, axis=0)
+        
+        self.logger.info(f'test shape: {preds.shape}, {trues.shape}')
+        avg_latency = (inference_time / (i + 1)) * 1000
+        self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
+
+        # Metrics
+        mae, mse, rmse, mape, mspe = metric(preds, trues)
+        self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}, mape:{:.5f}, mspe:{:.5f}'.format(mse, mae, rmse, mape, mspe))
+
+        # Save
+        np.save(os.path.join(result_path, 'metrics.npy'), np.array([mae, mse, rmse, mape, mspe]))
+        np.save(os.path.join(result_path, 'pred.npy'), preds)
+        np.save(os.path.join(result_path, 'true.npy'), trues)
+
+        return
+    
+    def vali(self, vali_data, vali_loader, criterion):
+        total_loss = []
+        self.model.eval()
+        
+        with torch.no_grad():
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+                batch_x = batch_x.float().to(self.device)
+                batch_y = batch_y.float()
 
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
@@ -212,95 +291,26 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
-                # --- Added Timing Start ---
-                start_time = time.time()
-                # --------------------------
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.amp.autocast('cuda'):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                # --- Added Timing End ---
-                inference_time += time.time() - start_time
-                # ------------------------
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, :]
-                batch_y = batch_y[:, -self.args.pred_len:, :].to(self.device)
-                outputs = outputs.detach().cpu().numpy()
-                batch_y = batch_y.detach().cpu().numpy()
-                if test_data.scale and self.args.inverse:
-                    shape = batch_y.shape
-                    if outputs.shape[-1] != batch_y.shape[-1]:
-                        outputs = np.tile(outputs, [1, 1, int(batch_y.shape[-1] / outputs.shape[-1])])
-                    outputs = test_data.inverse_transform(outputs.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    batch_y = test_data.inverse_transform(batch_y.reshape(shape[0] * shape[1], -1)).reshape(shape)
-
-                outputs = outputs[:, :, f_dim:]
-                batch_y = batch_y[:, :, f_dim:]
-
-                pred = outputs
-                true = batch_y
-
-                preds.append(pred)
-                trues.append(true)
-
-                if self.args.visualize == 1 and i % 2 == 0:
-                    input = batch_x.detach().cpu().numpy()
-                    if test_data.scale and self.args.inverse:
-                        # print(f">>>>>>>>>>>>> test_data.scale: {test_data.scale}, self.args.inverse: {self.args.inverse}")
-                        shape = input.shape
-                        input = test_data.inverse_transform(input.reshape(shape[0] * shape[1], -1)).reshape(shape)
+                
+                if isinstance(outputs, tuple):
+                    outputs, moe_loss = outputs
                     
-                    horizon_len = len(input[0, :, -1])
-                    # print(f">>>>>>>>>>>>> input.shape: {input[0, :, -1].shape}")
-                    label = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
-                    visual(
-                        label, 
-                        prediction, 
-                        horizon_len,
-                        pdf_save_path, 
-                        title=self.args.model_id) # setting['model_id'])
+                f_dim = -1 if self.args.features == 'MS' else 0
+                outputs = outputs[:, -self.args.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
-        preds = np.concatenate(preds, axis=0)
-        trues = np.concatenate(trues, axis=0)
-        self.logger.info(f'test shape: {preds.shape}, {trues.shape}')
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        self.logger.info(f'test shape: {preds.shape}, {trues.shape}')
-        # --- Added Latency Printing ---
-        avg_latency = (inference_time / (i + 1)) * 1000
-        self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
-        # ------------------------------
-        # dtw calculation
-        if self.args.use_dtw:
-            dtw_list = []
-            manhattan_distance = lambda x, y: np.abs(x - y)
-            for i in range(preds.shape[0]):
-                x = preds[i].reshape(-1, 1)
-                y = trues[i].reshape(-1, 1)
-                if i % 100 == 0:
-                    self.logger.info(f"calculating dtw iter: {i}")
-                d, _, _, _ = accelerated_dtw(x, y, dist=manhattan_distance)
-                dtw_list.append(d)
-            dtw = np.array(dtw_list).mean()
-        else:
-            dtw = 'Not calculated'
+                pred = outputs.detach()
+                true = batch_y.detach()
 
-        mae, mse, rmse, mape, mspe = metric(preds, trues)
-        self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}, mape:{:.5f}, mspe:{:.5f}, dtw:{}'.format(mse, mae, rmse, mape, mspe, dtw))
-        self.logger.info(f'End of testing.\n\n')
+                loss = criterion(pred, true)
 
-        f = open(os.path.join(result_path, 'result_long_term_forecast.txt'), 'a')
-        f.write(json.dumps(setting) + "  \n")
-        f.write('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}, mape:{:.5f}, mspe:{:.5f}, dtw:{}'.format(mse, mae, rmse, mape, mspe, dtw))
-        f.write('\n')
-        f.write('\n')
-        f.close()
-
-        np.save(os.path.join(result_path, 'metrics.npy'), np.array([mae, mse, rmse, mape, mspe]))
-        np.save(os.path.join(result_path, 'pred.npy'), preds)
-        np.save(os.path.join(result_path, 'true.npy'), trues)
-
+                total_loss.append(loss.item())
+        total_loss = np.average(total_loss)
+        self.model.train()
+        return total_loss
