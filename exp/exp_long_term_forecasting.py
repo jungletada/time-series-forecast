@@ -152,6 +152,126 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         return self.model
 
+    # def train(self, setting):
+    #     train_data, train_loader = self._get_data(flag='train')
+    #     vali_data, vali_loader = self._get_data(flag='val')
+    #     test_data, test_loader = self._get_data(flag='test')
+
+    #     ckpt_path = os.path.join(self.args.checkpoints, setting['save_dir'])
+    #     if not os.path.exists(ckpt_path):
+    #         os.makedirs(ckpt_path)
+
+    #     time_now = time.time()
+
+    #     train_steps = len(train_loader)
+    #     model_optim = self._select_optimizer()
+    #     criterion = self._select_criterion()
+
+    #     if self.args.use_amp:
+    #         scaler = torch.amp.GradScaler('cuda')
+
+    #     # 初始化最佳验证集 Loss 为无穷大
+    #     best_vali_loss = float('inf')
+
+    #     for epoch in range(self.args.train_epochs):
+    #         iter_count = 0
+    #         train_loss = []
+
+    #         self.model.train()
+    #         epoch_time = time.time()
+    #         for iter_step, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
+    #             iter_count += 1
+    #             model_optim.zero_grad()
+    #             batch_x = batch_x.float().to(self.device)
+    #             batch_y = batch_y.float().to(self.device)
+    #             batch_x_mark = batch_x_mark.float().to(self.device)
+    #             batch_y_mark = batch_y_mark.float().to(self.device)
+                
+    #             # decoder input
+    #             dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
+    #             dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+
+    #             # encoder - decoder
+    #             moe_loss = 0.0
+    #             if self.args.use_amp:
+    #                 with torch.amp.autocast('cuda'):
+    #                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+    #                     if isinstance(outputs, tuple):
+    #                         outputs, moe_loss = outputs
+    #                     f_dim = -1 if self.args.features == 'MS' else 0
+    #                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
+    #                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+    #                     loss = criterion(outputs, batch_y) + moe_loss * self.args.moe_weight
+    #                     train_loss.append(loss.item())
+    #             else:
+    #                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+    #                 if isinstance(outputs, tuple):
+    #                     outputs, moe_loss = outputs
+    #                 f_dim = -1 if self.args.features == 'MS' else 0
+    #                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
+    #                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+    #                 loss = criterion(outputs, batch_y) + moe_loss * self.args.moe_weight
+    #                 train_loss.append(loss.item())
+
+    #             if (iter_step + 1) % self.args.print_freq == 0:
+    #                 self.logger.info("\t iters: {0}, epoch: {1} | loss: {2:.7f}".format(iter_step + 1, epoch + 1, loss.item()))
+    #                 speed = (time.time() - time_now) / iter_count
+    #                 left_time = speed * ((self.args.train_epochs - epoch) * train_steps - iter_step)
+    #                 self.logger.info('\t speed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
+    #                 iter_count = 0
+    #                 time_now = time.time()
+
+    #             if self.args.use_amp:
+    #                 scaler.scale(loss).backward()
+    #                 scaler.step(model_optim)
+    #                 scaler.update()
+    #             else:
+    #                 loss.backward()
+    #                 model_optim.step()
+
+    #         # --- Added Train Time per Epoch ---
+    #         self.logger.info("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+    #         # --- Added Peak GPU Memory Logic ---
+    #         if torch.cuda.is_available():
+    #             max_memory = torch.cuda.max_memory_allocated() / 1024 / 1024
+    #             self.logger.info("Epoch: {} Peak GPU memory: {:.2f} MB".format(epoch + 1, max_memory))
+    #             torch.cuda.reset_peak_memory_stats()
+    #         # -----------------------------------
+            
+    #         train_loss = np.average(train_loss)
+    #         vali_loss = self.vali(test_data, test_loader, criterion)
+    #         test_loss = self.vali(test_data, test_loader, criterion)
+
+    #         self.logger.info("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
+    #             epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+            
+    #         # ================= 修改部分开始 =================
+    #         # 仅在当前验证集 Loss 小于历史最佳时保存模型
+    #         if vali_loss < best_vali_loss:
+    #             best_vali_loss = vali_loss
+    #             best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
+    #             torch.save(self.model.state_dict(), best_model_path)
+    #             self.logger.info(f"Validation loss decreased ({best_vali_loss:.6f}). Saving model to {best_model_path}")
+    #         # ================= 修改部分结束 =================
+
+    #         if isinstance(self.args.learning_rate, list):
+    #             base_lr = float(self.args.learning_rate[0])
+    #         else:
+    #             base_lr = float(self.args.learning_rate)
+            
+    #         adjust_learning_rate(model_optim, epoch + 1, base_lr, self.args)
+
+    #     # 循环结束后，加载训练过程中验证集表现最好的权重
+    #     best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
+    #     # 增加一个检查，防止整个训练过程一次都没保存成功（虽然极少见）
+    #     if os.path.exists(best_model_path):
+    #         self.model.load_state_dict(torch.load(best_model_path))
+    #         self.logger.info(f"Loaded best model from {best_model_path}")
+    #     else:
+    #         self.logger.warning("No checkpoint found. Returning the last epoch model.")
+
+    #     return self.model
+    
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
         if test:

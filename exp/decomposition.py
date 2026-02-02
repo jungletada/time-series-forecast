@@ -123,7 +123,9 @@ class LongTermDecomposition:
         # 3. Test Set
         full_decomp = self._decompose_and_pad(full_series)
         test_decomp_cd = full_decomp[border['start'][2]:border['end'][2]]
-        
+        #########################################################
+        # train_decomp = full_decomp[border['start'][0]:border['end'][0]]
+        # val_decomp_cd = full_decomp[border['start'][1]:border['end'][1]]
         return {'train': train_decomp, 'val': val_decomp_cd, 'test': test_decomp_cd}
 
     def run(self):
@@ -359,7 +361,7 @@ def decompose_long_term_data(data_root, K_IMFS):
  
 
 if __name__ == "__main__":
-    K_IMFS = 3
+    K_IMFS = 15
     data_root = 'dataset'
     decompose_long_term_data(data_root, K_IMFS)
     # for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
