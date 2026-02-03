@@ -92,16 +92,13 @@ def mask_topk_area(adj, n_vars, masks, alpha=0.5):
 
     return adj
 
-
-##########################
-
 class mask_moe(nn.Module):
-    def __init__(self, n_vars, top_p=0.5, num_experts=3, in_dim=96):
+    def __init__(self, n_vars, top_p=0.5, num_experts=3, in_dim=96, lambda_2=0.1):
         super().__init__()
         self.num_experts = num_experts
         self.n_vars = n_vars
         self.in_dim = in_dim
-
+        self.lambda_2 = lambda_2
         self.gate = nn.Linear(self.in_dim, num_experts, bias=False)
         self.noise = nn.Linear(self.in_dim, num_experts, bias=False)
         self.noisy_gating = 1 #True
@@ -121,7 +118,7 @@ class mask_moe(nn.Module):
             return torch.tensor([0], device=x.device, dtype=x.dtype)
         return -torch.mul(x, torch.log(x + eps)).sum(dim=1).mean()
 
-    def noisy_top_k_gating(self, x, is_training, noise_epsilon=1e-2):
+    def noisy_top_k_gating(self, x, is_training, noise_epsilon=1e-2, lambda_2=0.1):
         clean_logits = self.gate(x)
         if self.noisy_gating and is_training:
             raw_noise = self.noise(x)
@@ -150,7 +147,6 @@ class mask_moe(nn.Module):
 
         sorted_probs = torch.where(mask, 0.0, sorted_probs)
         loss_importance = self.cv_squared(sorted_probs.sum(0))
-        lambda_2 = 0.1
         loss = loss_importance + lambda_2 * loss_dynamic
 
         return top_p_mask, loss
@@ -166,7 +162,7 @@ class mask_moe(nn.Module):
             return mask_base, 0.0
 
         x = x.reshape(B * H, L, L)
-        gates, loss = self.noisy_top_k_gating(x, self.training)
+        gates, loss = self.noisy_top_k_gating(x, self.training, lambda_2=self.lambda_2)
         gates = gates.reshape(B, H, L, -1).float()
         # [B, H, L, 3]
 
@@ -198,13 +194,13 @@ def mask_topk(x, alpha=0.5, largest=False):
 
 
 class GraphLearner(nn.Module):
-    def __init__(self, dim, n_vars, top_p=0.5, in_dim=96):
+    def __init__(self, dim, n_vars, top_p=0.5, in_dim=96, lambda_2=0.1):
         super().__init__()
         self.dim = dim
         self.proj_1 = nn.Linear(dim, dim)
         self.proj_2 = nn.Linear(dim, dim)
         self.n_vars = n_vars
-        self.mask_moe = mask_moe(n_vars, top_p=top_p, in_dim=in_dim)
+        self.mask_moe = mask_moe(n_vars, top_p=top_p, in_dim=in_dim, lambda_2=lambda_2)
 
     def forward(self, x, masks=None, alpha=0.5):
         # x: [B, H, L, D]
@@ -217,13 +213,13 @@ class GraphLearner(nn.Module):
 
 
 class GraphFilter(nn.Module):
-    def __init__(self, dim, n_vars, n_heads=4, scale=None, top_p=0.5, dropout=0., in_dim=96):
+    def __init__(self, dim, n_vars, n_heads=4, scale=None, top_p=0.5, dropout=0., in_dim=96, lambda_2=0.1):
         super().__init__()
         self.dim = dim
         self.n_heads = n_heads
         self.scale = dim ** (-0.5) if scale is None else scale
         self.dropout = nn.Dropout(dropout)
-        self.graph_learner = GraphLearner(self.dim // self.n_heads, n_vars, top_p, in_dim=in_dim)
+        self.graph_learner = GraphLearner(self.dim // self.n_heads, n_vars, top_p, in_dim=in_dim, lambda_2=lambda_2)
         self.graph_conv = GCN(self.dim, self.n_heads)
 
     def forward(self, x, masks=None, alpha=0.5):
@@ -239,11 +235,11 @@ class GraphFilter(nn.Module):
 
 
 class GraphBlock(nn.Module):
-    def __init__(self, dim, n_vars, d_ff=None, n_heads=4, top_p=0.5, dropout=0., in_dim=96):
+    def __init__(self, dim, n_vars, d_ff=None, n_heads=4, top_p=0.5, dropout=0., in_dim=96, lambda_2=0.1):
         super().__init__()
         self.dim = dim
         self.d_ff = dim * 4 if d_ff is None else d_ff
-        self.gnn = GraphFilter(self.dim, n_vars, n_heads, top_p=top_p, dropout=dropout, in_dim=in_dim)
+        self.gnn = GraphFilter(self.dim, n_vars, n_heads, top_p=top_p, dropout=dropout, in_dim=in_dim, lambda_2=lambda_2)
         self.norm1 = nn.LayerNorm(self.dim)
         self.ffn = nn.Sequential(
             nn.Linear(self.dim, self.d_ff),
@@ -262,13 +258,15 @@ class GraphBlock(nn.Module):
 
 
 class TimeFilter_Backbone(nn.Module):
-    def __init__(self, hidden_dim, n_vars, d_ff=None, n_heads=4, n_blocks=3, top_p=0.5, dropout=0., in_dim=96):
+    def __init__(self, hidden_dim, n_vars, d_ff=None, n_heads=4,
+                 n_blocks=3, top_p=0.5, dropout=0., in_dim=96, lambda_1=0.1, lambda_2=0.1):
         super().__init__()
         self.dim = hidden_dim
         self.d_ff = self.dim * 2 if d_ff is None else d_ff
+        self.lambda_1 = lambda_1
         # graph blocks
         self.blocks = nn.ModuleList([
-            GraphBlock(self.dim, n_vars, self.d_ff, n_heads, top_p, dropout, in_dim)
+            GraphBlock(self.dim, n_vars, self.d_ff, n_heads, top_p, dropout, in_dim, lambda_2)
             for _ in range(n_blocks)
         ])
         self.n_blocks = n_blocks
@@ -280,4 +278,5 @@ class TimeFilter_Backbone(nn.Module):
             x, loss = block(x, masks, alpha)
             moe_loss += loss
         moe_loss /= self.n_blocks
+        moe_loss = moe_loss * self.lambda_1
         return x, moe_loss  # [B, N, T]

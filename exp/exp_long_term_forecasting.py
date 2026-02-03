@@ -32,15 +32,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        if isinstance(self.args.learning_rate, list):
-            if len(self.args.learning_rate) == 0:
-                raise ValueError("args.learning_rate is an empty list.")
-            base_lr = float(self.args.learning_rate[0])
-        else:
-            base_lr = float(self.args.learning_rate)
-        model_optim = optim.Adam(
-            self.model.parameters(), 
-            lr=base_lr)
+        # AdamW is used just like Adam, but it decouples weight decay from the gradient update.
+        # Example usage:
+        model_optim = optim.AdamW(
+            self.model.parameters(),
+            lr=self.args.learning_rate,
+            weight_decay=0.01,
+            betas=(0.9, 0.999),   
+            eps=1e-8                     
+        )
         return model_optim
 
     def _select_criterion(self):
@@ -140,12 +140,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             if early_stopping.early_stop:
                 self.logger.info("Early stopping...")
                 break
-            if isinstance(self.args.learning_rate, list):
-                base_lr = float(self.args.learning_rate[0])
-            else:
-                base_lr = float(self.args.learning_rate)
             
-            adjust_learning_rate(model_optim, epoch + 1, base_lr, self.args)
+            adjust_learning_rate(model_optim, epoch + 1,self.args)
 
         best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
         self.model.load_state_dict(torch.load(best_model_path))

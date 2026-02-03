@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
-
 warnings.filterwarnings('ignore')
 
 def merge_components(data_npy, k):

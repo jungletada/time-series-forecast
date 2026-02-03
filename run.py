@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--visualize', type=int, default=1, help='visualize')
     # data loader
     parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
-    parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')
+    parser.add_argument('--model_config', type=str, default=None, help='model config')
     parser.add_argument('--decomp_k', type=int, default=3, help='decomposition k')
     parser.add_argument('--data_name', type=str, default='ETTh1', help='dataset name')
     parser.add_argument('--features', type=str, default='M',
@@ -58,6 +58,7 @@ def get_args():
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%%)')
 
     # model define
+    parser.add_argument('--nda_patch', type=int, default=4, help='patch length for NDA')
     parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
     parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')
     parser.add_argument('--top_k', type=int, default=5, help='for TimesBlock')
@@ -90,6 +91,7 @@ def get_args():
                         help='down sampling method, only support avg, max, conv')
     parser.add_argument('--seg_len', type=int, default=96,
                         help='the length of segmen-wise iteration of SegRNN')
+    parser.add_argument('--kernel_size', type=int, default=5, help='kernel size for TCN')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')

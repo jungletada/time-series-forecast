@@ -1,213 +1,97 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from layers.Embed import PositionalEmbedding
 from layers.StandardNorm import Normalize
 from layers.TimeFilter_layers import TimeFilter_Backbone
+from layers.nda import DecompInputAdapter
 
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from layers.Embed import PositionalEmbedding
-
-class ComponentAwarePatchEmbed(nn.Module):
-    def __init__(self, dim, patch_len, stride=None, pos=True, decomp_k=3):
+class PatchEmbed(nn.Module):
+    """
+    Original Patch Embedding for TimeFilter
+    """
+    def __init__(self, dim, patch_len, stride=None, pos=True):
         super().__init__()
-        print(f">>>>> TimeFilter_CADE: patch_len: {patch_len}, decomp_k: {decomp_k}, dim: {dim} (Dynamic Mode)\n")
-        
         self.patch_len = patch_len
         self.stride = patch_len if stride is None else stride
-        self.decomp_k = decomp_k
-        self.dim = dim
+        self.patch_proj = nn.Linear(self.patch_len, dim)
         self.pos = pos
-
-        # 1. 独立投影 (Decoupled Projection)
-        self.component_projs = nn.ModuleList([
-            nn.Linear(patch_len, dim) for _ in range(decomp_k)
-        ])
-
-        # 2. 动态门控网络 (Dynamic Gating Network)
-        self.gating_net = nn.Sequential(
-            nn.Linear(dim * decomp_k, dim // 2),
-            nn.GELU(),
-            nn.Linear(dim // 2, decomp_k),
-        )
-        self.softmax = nn.Softmax(dim=-1)
-
         if self.pos:
             pos_emb_theta = 10000
             self.pe = PositionalEmbedding(dim, pos_emb_theta)
 
     def forward(self, x):
-        # x: [B, L, K]
-        
-        # 1. Unfold 展开时间维度
-        # 输入 x: [B, L, K] -> Unfold dim 1 -> 输出: [B, Num_Patches, K, Patch_Len]
-        # 注意：unfold 将新生成的维度 (Patch_Len) 放在最后
-        x_patched = x.unfold(dimension=1, size=self.patch_len, step=self.stride)
-        
-        # 2. 独立投影 (Independent Projection)
-        embeddings_list = []
-        for k in range(self.decomp_k):
-            # 关键修正：切片维度应该是第 2 维 (K)，保留第 3 维 (Patch_Len)
-            # x_patched[:, :, k, :] -> [B, Num_Patches, Patch_Len]
-            component_patch = x_patched[:, :, k, :] 
-            
-            # Linear: [..., Patch_Len] -> [..., Dim]
-            emb = self.component_projs[k](component_patch)
-            embeddings_list.append(emb)
-
-        # 堆叠起来: [B, Num_Patches, K, Dim]
-        stacked_emb = torch.stack(embeddings_list, dim=2)
-
-        # 3. 计算动态权重 (Dynamic Weighting)
-        # Flatten Context: [B, Num_Patches, K * Dim]
-        context = stacked_emb.flatten(start_dim=2)
-        
-        # Calculate Weights: [B, Num_Patches, K]
-        attn_weights = self.gating_net(context)
-        attn_weights = self.softmax(attn_weights) 
-        
-        # Expand for broadcast: [B, Num_Patches, K, 1]
-        attn_weights = attn_weights.unsqueeze(-1)
-
-        # 4. 加权融合 (Weighted Fusion)
-        # Sum over K: [B, Num_Patches, Dim]
-        x_final = (stacked_emb * attn_weights).sum(dim=2)
-
+        # x: [B, N, T]
+        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+        # x: [B, N*L, P]
+        x = self.patch_proj(x)  # [B, N*L, D]
         if self.pos:
-            x_final += self.pe(x_final)
-            
-        return x_final
-    
-# class ComponentAwarePatchEmbed(nn.Module):
-#     def __init__(self, dim, patch_len, stride=None, pos=True, decomp_k=3, dropout=0.1):
-#         super().__init__()
-#         print(f">>>>> TimeFilter_CADE (Upgraded): patch_len={patch_len}, k={decomp_k}, dim={dim}, expand=2x\n")
-        
-#         self.patch_len = patch_len
-#         self.stride = patch_len if stride is None else stride
-#         self.decomp_k = decomp_k
-#         self.dim = dim
-#         self.pos = pos
+            x += self.pe(x)
+        return x
 
-#         # ============================================================
-#         # 1. 独立投影 (Decoupled Projection) -> 升级为 MLP Block
-#         # 作用：为每个分量提取深层特征，而不仅仅是线性映射
-#         # 结构：Linear -> LayerNorm -> GELU -> Dropout
-#         # ============================================================
-#         self.component_projs = nn.ModuleList([
-#             nn.Sequential(
-#                 nn.Linear(patch_len, dim),
-#                 nn.GELU(),
-#             ) for _ in range(decomp_k)
-#         ])
-
-#         # ============================================================
-#         # 2. 动态门控网络 (Dynamic Gating Network) -> 升级为 Expand-Reduce MLP
-#         # 参考 Transformer FFN 结构：先升维挖掘交互，再降维输出权重
-#         # ============================================================
-#         input_dim = dim * decomp_k
-#         hidden_dim = input_dim * 2  # Expand Ratio = 2 (也可以设为4)
-        
-#         self.gating_net = nn.Sequential(
-#             nn.Linear(input_dim, hidden_dim),
-#             nn.GELU(),                      # 激活函数
-#             nn.Linear(hidden_dim, decomp_k) # 降维到 K 个权重
-#         )
-#         self.softmax = nn.Softmax(dim=-1)
-
-#         if self.pos:
-#             pos_emb_theta = 10000
-#             self.pe = PositionalEmbedding(dim, pos_emb_theta)
-
-#     def forward(self, x):
-#         # x: [B, N_total, K]
-        
-#         # 1. Unfold 展开时间维度
-#         # 输出: [B, Num_Patches, K, Patch_Len]
-#         x_patched = x.unfold(dimension=1, size=self.patch_len, step=self.stride)
-        
-#         # 2. 独立投影 (Independent Projection)
-#         embeddings_list = []
-#         for k in range(self.decomp_k):
-#             # 切片维度: [B, Num_Patches, Patch_Len] (取第 k 个分量)
-#             # 注意: x_patched 的维度是 [B, N, K, P]，所以切第2维
-#             component_patch = x_patched[:, :, k, :] 
-            
-#             # MLP Block: [..., Patch_Len] -> [..., Dim]
-#             emb = self.component_projs[k](component_patch)
-#             embeddings_list.append(emb)
-
-#         # 堆叠: [B, Num_Patches, K, Dim]
-#         stacked_emb = torch.stack(embeddings_list, dim=2)
-
-#         # 3. 计算动态权重 (Dynamic Weighting)
-#         # Flatten Context: [B, Num_Patches, K * Dim]
-#         context = stacked_emb.flatten(start_dim=2)
-        
-#         # Gating Net: [B, Num_Patches, K]
-#         attn_weights = self.gating_net(context)
-#         attn_weights = self.softmax(attn_weights) 
-        
-#         # Expand for broadcast: [B, Num_Patches, K, 1]
-#         attn_weights = attn_weights.unsqueeze(-1)
-
-#         # 4. 加权融合 (Weighted Fusion)
-#         # Sum over K: [B, Num_Patches, Dim]
-#         x_final = (stacked_emb * attn_weights).sum(dim=2)
-
-#         if self.pos:
-#             x_final += self.pe(x_final)
-            
-#         return x_final
 
 class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()
         self.args = configs
-        self.decomp_k = getattr(configs, 'decomp_k', 3) 
         
+        # 1. 基础配置
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
         self.n_vars = configs.c_out
         self.dim = configs.d_model
-        self.d_ff = configs.d_ff
         self.patch_len = configs.patch_len
-        self.stride = self.patch_len
+        self.stride = configs.patch_len # Non-overlap
+        
+        # 2. 获取分解参数 K
+        self.decomp_k = getattr(configs, 'decomp_k', 3) 
         self.num_patches = int((self.seq_len - self.patch_len) / self.stride + 1)
 
+        # TimeFilter 超参
         self.alpha = 0.1 if configs.alpha is None else configs.alpha
         self.top_p = 0.5 if configs.top_p is None else configs.top_p
 
-        self.patch_embed = ComponentAwarePatchEmbed(
-            dim=self.dim, 
-            patch_len=self.patch_len, 
-            stride=self.stride, 
-            pos=configs.pos, 
+        # ============================================================
+        # 3. 初始化通用分解适配器 (Adapter)
+        # ============================================================
+        self.nda_patch = configs.nda_patch
+        self.adapter = DecompInputAdapter(
+            d_model=self.dim,
+            patch_len=self.nda_patch,
+            stride=self.stride,
             decomp_k=self.decomp_k,
+            dropout=configs.dropout,
+            pos_embed=configs.pos,  # Adapter 内部加位置编码
+            mode='patch'            # 设为 patch 模式适配 TimeFilter
         )
 
-        self.backbone = TimeFilter_Backbone(self.dim, self.n_vars, self.d_ff,
-                                            configs.n_heads, configs.e_layers, self.top_p, configs.dropout,
-                                            self.seq_len * self.n_vars // self.patch_len)
+        # ============================================================
+        # 4. Backbone (TimeFilter)
+        # ============================================================
+        # TimeFilter 核心，输入标准的 Embeddings
+        self.backbone = TimeFilter_Backbone(
+            self.dim, self.n_vars, configs.d_ff,
+            configs.n_heads, configs.e_layers, self.top_p, configs.dropout,
+            self.seq_len * self.n_vars // self.patch_len
+        )
 
-        if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
+        # ============================================================
+        # 5. Prediction Head
+        # ============================================================
+        if self.task_name in ['long_term_forecast', 'short_term_forecast']:
+            # 将 Patch Embeddings 展平 -> 映射回 Pred_Len
             self.head = nn.Linear(self.dim * self.num_patches, self.pred_len)
-        elif self.task_name == 'imputation' or self.task_name == 'anomaly_detection':
-            self.head = nn.Linear(self.dim * self.num_patches, self.seq_len)
-        elif self.task_name == 'classification':
-            self.num_patches = int((self.seq_len * configs.enc_in - self.patch_len) / self.stride + 1)
-            self.dropout = nn.Dropout(configs.dropout)
-            self.projection = nn.Linear(self.dim * self.num_patches, configs.num_class)
+        else:
+            # 可以在此扩展 Classification 等其他 Head
+            raise ValueError(f"Task {self.task_name} not supported yet.")
 
+        # 用于手动归一化，不使用 RevIN 模块
         self.use_RevIN = False
         self.norm = Normalize(configs.enc_in, affine=self.use_RevIN)
 
     def _get_mask(self, device):
+        # TimeFilter 特有的掩码生成逻辑 (保持原样)
         dtype = torch.float32
         L = self.args.seq_len * self.args.c_out // self.args.patch_len
         N = self.args.seq_len // self.args.patch_len
@@ -222,40 +106,54 @@ class Model(nn.Module):
         return masks
 
     def forecast(self, x_decomp, masks, x_dec, x_mark_dec):
-        # x_decomp: [B, T, C, K]
+        """
+        x_decomp: [B, T, C, K] - 原始输入
+        """
         B, T, C, K = x_decomp.shape
         
-        # 1. 归一化
-        x_raw = x_decomp.sum(dim=-1)
-        mean = x_raw.mean(dim=1, keepdim=True)
-        std = x_raw.std(dim=1, keepdim=True)
-        mean_k = mean.unsqueeze(-1)
-        std_k = std.unsqueeze(-1)
-        x_decomp = (x_decomp - mean_k) / (std_k + 1e-5)
-
-        # 2. 维度适配
-        # 目标: [B, N_total, K] -> [B, C*T, K]
-        # 先把 C 移到前面: [B, C, T, K]
-        x = x_decomp.permute(0, 2, 1, 3)
-        # 展平 C 和 T
-        x = x.reshape(B, C * T, K)
-
-        # 3. Component-Aware Embedding
-        x = self.patch_embed(x) 
-
-        # 4. Backbone
-        x, moe_loss = self.backbone(x, self._get_mask(x.device), self.alpha)
-
-        # 5. Prediction Head
-        x = x.reshape(B, self.n_vars, self.num_patches, self.dim)
-        x = x.flatten(start_dim=-2)
-        x = self.head(x)
-        x = x.permute(0, 2, 1)
-
-        # 6. 反归一化
-        x = x * std + mean
+        # ==========================================
+        # 1. 归一化 (保留分量相对幅度)
+        # ==========================================
+        # 还原原始信号用于计算统计量
+        x_raw = x_decomp.sum(dim=-1) # [B, T, C]
         
-        return x, moe_loss
+        # 计算均值和标准差 (Instance Normalization)
+        mean = x_raw.mean(dim=1, keepdim=True).unsqueeze(-1) # [B, 1, C, 1]
+        std = x_raw.std(dim=1, keepdim=True).unsqueeze(-1)   # [B, 1, C, 1]
+        
+        # 归一化所有分量
+        x_decomp = (x_decomp - mean) / (std + 1e-6)
+
+        # 1. Adapter: [B, T, C, K] -> [B * C, Num_Patches, D]
+        enc_out = self.adapter(x_decomp) 
+        
+        # TimeFilter Backbone 期望的输入是 [B, Total_Nodes, D]
+        # 其中 Total_Nodes = Num_Variables * Num_Patches_Per_Var
+        
+        # 2. 将 C 和 Num_Patches 展平合并: [B, C * Num_Patches, D]
+        # 这样总节点数就是 C * N = 42 (如果 C=7, N=6)
+        enc_out = enc_out.reshape(B, C * self.num_patches, self.dim)
+
+        # 2. Backbone: 输入 [B, 42, D]
+        # 注意：_get_mask 也需要根据新的维度生成 mask
+        # TimeFilter 内部会处理这个长序列的图结构
+        enc_out, moe_loss = self.backbone(enc_out, self._get_mask(enc_out.device), self.alpha)
+
+        # 3. Output Head: [B, C * Num_Patches, D] -> [B, C, Pred_Len]
+        # 恢复维度以便 Head 处理
+        enc_out = enc_out.reshape(B, C, self.num_patches, self.dim) # [B, C, N, D]
+        enc_out = enc_out.flatten(start_dim=-2) # [B, C, N*D]
+        out = self.head(enc_out) # [B, C, Pred_Len] -> Head 是 Linear(N*D, Pred_Len)
+        out = out.permute(0, 2, 1) # [B, Pred_Len, C]
+
+        # ==========================================
+        # 5. 反归一化
+        # ==========================================
+        mean = mean.squeeze(-1) # [B, 1, C]
+        std = std.squeeze(-1)
+        out = out * std + mean
+        
+        return out, moe_loss
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':

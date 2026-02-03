@@ -11,13 +11,9 @@ for i in "${!pred_lens[@]}"; do
     --task_name long_term_forecast \
     --is_training 1 \
     --data_name ETTm1 \
-    --model_id ETTm1_${pred_lens[$i]} \
+    --model_id $model_name \
     --model $model_name \
-    --features S \
-    --target OT \
-    --enc_in 1 \
-    --dec_in 1 \
-    --c_out 1 \
+    --features M \
     --dropout ${dropout[$i]} \
     --top_p ${top_p[$i]} \
     --patch_len ${patch_len[$i]} \
