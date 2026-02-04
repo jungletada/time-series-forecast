@@ -121,7 +121,7 @@ class DecompInputAdapterv1(nn.Module):
         x_final = x_final.reshape(B, C, -1, self.d_model) # [B, C, Num_Patches, D]
         return x_final
 
-class DecompInputAdapter(nn.Module):
+class DecompInputAdapterv2(nn.Module):
     def __init__(self, 
                  d_model,        
                  patch_len=16,   
@@ -210,7 +210,7 @@ class DecompInputAdapter(nn.Module):
         
         return x_final
 
-class DecompInputAdapterv2(nn.Module):
+class DecompInputAdapter(nn.Module):
     def __init__(self, 
                  d_model,        
                  patch_len=16,   
