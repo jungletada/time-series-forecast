@@ -7,11 +7,7 @@ import json
 import torch
 import torch.backends
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-from exp.exp_imputation import Exp_Imputation
-from exp.exp_anomaly_detection import Exp_Anomaly_Detection
-from exp.exp_classification import Exp_Classification
-from exp.exp_zero_shot_forecasting import Exp_Zero_Shot_Forecast
+from exp.exp_long_term_forecasting_nda import Exp_Long_Term_Forecas_NDA
 from utils.tools import seed_everything, apply_data_config, apply_model_config
 
 def get_args():
@@ -25,6 +21,7 @@ def get_args():
     parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
+    parser.add_argument('--selected_k', type=int, default=1, help='selected k for IMF decomposition')
     parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
@@ -97,7 +94,7 @@ def get_args():
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
-    parser.add_argument('--print_freq', type=int, default=100, help='print frequency')
+    parser.add_argument('--print_freq', type=int, default=20, help='print frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
@@ -218,28 +215,18 @@ if __name__ == '__main__':
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
 
+    Exp = None
     if args.task_name == 'long_term_forecast':
-        Exp = Exp_Long_Term_Forecast
-    elif args.task_name == 'short_term_forecast':
-        Exp = Exp_Short_Term_Forecast
-    elif args.task_name == 'imputation':
-        Exp = Exp_Imputation
-    elif args.task_name == 'anomaly_detection':
-        Exp = Exp_Anomaly_Detection
-    elif args.task_name == 'classification':
-        Exp = Exp_Classification
-    elif args.task_name == 'zero_shot_forecast':
-        Exp = Exp_Zero_Shot_Forecast
-    else:
-        Exp = Exp_Long_Term_Forecast
+        if args.model.endswith('NDA'):
+            Exp = Exp_Long_Term_Forecas_NDA
+            args.data_type = args.data_type + '_dep'
+        else:
+            Exp = Exp_Long_Term_Forecast
 
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            if args.data_type == 'm4':
-                save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
-            else:
-                save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
             save_dir = os.path.join(args.data_name, save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
@@ -271,11 +258,7 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        # setting record of experiments
-        if args.data_type == 'm4':
-            save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
-        else:
-            save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         save_dir = os.path.join(args.data_name, save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {

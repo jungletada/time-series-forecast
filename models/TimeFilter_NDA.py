@@ -55,10 +55,9 @@ class Model(nn.Module):
         # ============================================================
         # 3. 初始化通用分解适配器 (Adapter)
         # ============================================================
-        self.nda_patch = configs.nda_patch
         self.adapter = DecompInputAdapter(
             d_model=self.dim,
-            patch_len=self.nda_patch,
+            patch_len=self.patch_len,
             stride=self.stride,
             decomp_k=self.decomp_k,
             dropout=configs.dropout,
@@ -107,56 +106,82 @@ class Model(nn.Module):
 
     def forecast(self, x_decomp, masks, x_dec, x_mark_dec):
         """
-        x_decomp: [B, T, C, K] - 原始输入
+        x_decomp: [B, T, C, K] - 输入的分解分量
         """
         B, T, C, K = x_decomp.shape
         
         # ==========================================
-        # 1. 归一化 (保留分量相对幅度)
+        # 1. 归一化 (Instance Normalization)
         # ==========================================
-        # 还原原始信号用于计算统计量
+        # 还原原始信号用于计算统计量 (Original ≈ Sum(Components))
         x_raw = x_decomp.sum(dim=-1) # [B, T, C]
         
-        # 计算均值和标准差 (Instance Normalization)
-        mean = x_raw.mean(dim=1, keepdim=True).unsqueeze(-1) # [B, 1, C, 1]
-        std = x_raw.std(dim=1, keepdim=True).unsqueeze(-1)   # [B, 1, C, 1]
+        # 计算均值和标准差: [B, 1, C, 1]
+        mean = x_raw.mean(dim=1, keepdim=True).unsqueeze(-1)
+        std = x_raw.std(dim=1, keepdim=True).unsqueeze(-1)
         
-        # 归一化所有分量
-        x_decomp = (x_decomp - mean) / (std + 1e-6)
-
-        # 1. Adapter: [B, T, C, K] -> [B * C, Num_Patches, D]
-        enc_out = self.adapter(x_decomp) 
+        # 归一化输入 (保留分量间的相对关系)
+        x_decomp_norm = (x_decomp - mean) / (std + 1e-8)
         
-        # TimeFilter Backbone 期望的输入是 [B, Total_Nodes, D]
-        # 其中 Total_Nodes = Num_Variables * Num_Patches_Per_Var
+        # ==========================================
+        # 2. Adapter 特征提取
+        # ==========================================
+        # Adapter 融合 K 个分量 -> D_model
+        # Input: [B, T, C, K] -> Output: [B * C, Num_Patches, D]
+        enc_out = self.adapter(x_decomp_norm) 
         
-        # 2. 将 C 和 Num_Patches 展平合并: [B, C * Num_Patches, D]
-        # 这样总节点数就是 C * N = 42 (如果 C=7, N=6)
+        # ==========================================
+        # 3. Backbone (TimeFilter) 处理
+        # ==========================================
+        # TimeFilter 期望输入: [B, Total_Nodes, D]
+        # 我们将 Variables (C) 和 Patches (N) 视为图的节点
+        
+        # Reshape: [B * C, N, D] -> [B, C * N, D]
         enc_out = enc_out.reshape(B, C * self.num_patches, self.dim)
 
-        # 2. Backbone: 输入 [B, 42, D]
-        # 注意：_get_mask 也需要根据新的维度生成 mask
-        # TimeFilter 内部会处理这个长序列的图结构
+        # 传入 Backbone (注意 masks 需匹配节点数)
+        # self._get_mask 会根据当前的 C*N 生成对应的图掩码
         enc_out, moe_loss = self.backbone(enc_out, self._get_mask(enc_out.device), self.alpha)
-
-        # 3. Output Head: [B, C * Num_Patches, D] -> [B, C, Pred_Len]
-        # 恢复维度以便 Head 处理
-        enc_out = enc_out.reshape(B, C, self.num_patches, self.dim) # [B, C, N, D]
-        enc_out = enc_out.flatten(start_dim=-2) # [B, C, N*D]
-        out = self.head(enc_out) # [B, C, Pred_Len] -> Head 是 Linear(N*D, Pred_Len)
-        out = out.permute(0, 2, 1) # [B, Pred_Len, C]
+        
+        # ==========================================
+        # 4. Prediction Head
+        # ==========================================
+        # Backbone Output: [B, C * N, D]
+        
+        # 恢复维度以便 Head 处理: [B, C, N, D]
+        enc_out = enc_out.reshape(B, C, self.num_patches, self.dim)
+        
+        # Flatten Patches: [B, C, N * D]
+        enc_out = enc_out.flatten(start_dim=-2)
+        
+        # Linear Projection: [B, C, N * D] -> [B, C, Pred_Len]
+        # 注意: 此时 self.head 应该是 nn.Linear(N*D, Pred_Len)
+        out = self.head(enc_out)
+        
+        # 调整维度匹配 Target: [B, C, Pred_Len] -> [B, Pred_Len, C]
+        out = out.permute(0, 2, 1)
 
         # ==========================================
         # 5. 反归一化
         # ==========================================
+        # 调整 mean/std 维度以匹配 [B, Pred_Len, C]
         mean = mean.squeeze(-1) # [B, 1, C]
-        std = std.squeeze(-1)
+        std = std.squeeze(-1)   # [B, 1, C]
+        
         out = out * std + mean
         
+        # # ==========================================
+        # # 6. 残差连接 (Residual Connection)
+        # # ==========================================
+        # # 加上输入序列的最后一个值，强制模型学习趋势增量
+        # last_val = x_raw[:, -1:, :] # [B, 1, C]
+        # out = out + last_val
+        
         return out, moe_loss
-
+    
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             dec_out, moe_loss = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
             return dec_out[:, -self.pred_len:, :], moe_loss
         return None
+    

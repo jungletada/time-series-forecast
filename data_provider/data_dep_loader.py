@@ -77,7 +77,7 @@ class Dataset_ETT_Decomposed(Dataset):
         self.data_path = data_path
         
         # k parameter for component merging
-        self.k = getattr(args, 'selected_k', 3) # 增加默认值防止报错
+        self.k = getattr(args, 'selected_k', 1) # 增加默认值防止报错
         
         self.border_map = {
             'ETTh': {
@@ -191,12 +191,13 @@ class Dataset_ETT_Decomposed(Dataset):
             self.scaler.fit(train_raw_data.values)
             # 对当前需要的数据段进行 Transform
             # 注意：这里我们 transform 整个 CSV 段，然后切片
-            data_y_scaled = self.scaler.transform(df_data.values)
+            raw_scaled = self.scaler.transform(df_data.values)
         else:
-            data_y_scaled = df_data.values
+            raw_scaled = df_data.values
 
-        self.data_x = data_processed          # [T, C, 3]
-        self.data_y = data_y_scaled[start_idx:end_idx] # [T, C]
+        # 修改后:
+        self.data_decomp = data_processed            # 存储分解信号 [T, C, K]
+        self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
         self.data_stamp = data_stamp
 
     def __getitem__(self, index):
@@ -205,19 +206,47 @@ class Dataset_ETT_Decomposed(Dataset):
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
-        # X: 分解数据，3通道
-        seq_x = self.data_x[s_begin:s_end, :, :]  # [Seq_Len, C, 3]
+        # ====================================================
+        # 1. 构建输入 seq_x: [Seq_Len, C, K+1]
+        # ====================================================
+        # A. 获取分解部分 [Seq_Len, C, K]
+        # 修改点：self.data_x -> self.data_decomp
+        seq_x_decomp = self.data_decomp[s_begin:s_end, :, :]
         
-        # Y: 原始数据，2D
-        seq_y = self.data_y[r_begin:r_end, :]     # [Label_Len + Pred_Len, C]
+        # B. 获取原始部分 [Seq_Len, C] -> 扩展为 [Seq_Len, C, 1]
+        # 修改点：self.data_y -> self.data_original
+        seq_x_original = self.data_original[s_begin:s_end, :]
+        seq_x_original = seq_x_original[:, :, np.newaxis] 
+
+        # C. 拼接: 原始信号在第0位 [Seq_Len, C, 1+K]
+        seq_x = np.concatenate([seq_x_original, seq_x_decomp], axis=-1)
         
+        # ====================================================
+        # 2. 构建标签 seq_y: [Label_Len + Pred_Len, C, K+1]
+        # ====================================================
+        # A. 获取分解标签
+        # 修改点：self.data_x -> self.data_decomp
+        seq_y_decomp = self.data_decomp[r_begin:r_end, :, :]
+        
+        # B. 获取原始标签
+        # 修改点：self.data_y -> self.data_original
+        seq_y_original = self.data_original[r_begin:r_end, :]
+        seq_y_original = seq_y_original[:, :, np.newaxis]
+        
+        # C. 拼接
+        seq_y = np.concatenate([seq_y_original, seq_y_decomp], axis=-1)
+        
+        # ====================================================
+        # 3. 时间戳 (不变)
+        # ====================================================
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
         return seq_x, seq_y, seq_x_mark, seq_y_mark
-
+    
     def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
+        # 原 self.data_x 已更名为 self.data_decomp
+        return len(self.data_decomp) - self.seq_len - self.pred_len + 1
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)

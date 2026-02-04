@@ -6,7 +6,7 @@ e_layers=(4 4 4 4)
 kernel_size=(5 7 9 9)
 learning_rates=(0.001 0.002 0.002 0.002)
 
-for i in "${!pred_lens[@]}"; do
+for i in 720; do
   python -u run.py \
     --seed 3407 \
     --task_name long_term_forecast \
@@ -17,8 +17,8 @@ for i in "${!pred_lens[@]}"; do
     --features M \
     --seq_len 96 \
     --label_len 0 \
-    --pred_len $pred_len \
-    --d_model 96 \
+    --pred_len $i \
+    --d_model 64 \
     --e_layers 4 \
     --kernel_size 9 \
     --dropout 0.1 \
