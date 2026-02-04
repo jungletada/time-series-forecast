@@ -34,6 +34,32 @@ def build_model_args(base_args: Namespace, model_cfg: dict) -> Namespace:
     return model_args
 
 
+def get_config_for_pred_len(yaml_path, target_pred_len):
+    """
+    根据 target_pred_len 读取 yaml 配置
+    逻辑：先读取 common，再用特定长度的配置去 update 覆盖
+    """
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        full_cfg = yaml.safe_load(f)
+    
+    # 1. 获取通用配置 (如果没有 common 字段，就给空字典)
+    final_cfg = full_cfg.get('common', {}).copy()
+    
+    # 2. 获取特定长度的配置
+    # 注意：YAML 读取进来 key 可能是 int 也可能是 str，建议统一转 str 处理
+    key = str(target_pred_len)
+    
+    if key in full_cfg:
+        specific_cfg = full_cfg[key]
+        # 3. 覆盖/更新：specific_cfg 的值会覆盖 common 的值
+        final_cfg.update(specific_cfg)
+        print(f">>> Loaded specific config for pred_len={key}")
+    else:
+        print(f"!!! Warning: No specific config found for pred_len={key}, using common defaults.")
+        
+    return final_cfg
+
+
 def load_yaml_config(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f) or {}

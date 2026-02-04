@@ -23,7 +23,6 @@ class Exp_Long_Term_Forecas_NDA(Exp_Basic):
         
     def _build_model(self):
         model = self.model_dict[self.args.model].Model(self.args).float()
-
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
@@ -166,6 +165,7 @@ class Exp_Long_Term_Forecas_NDA(Exp_Basic):
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
+
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []

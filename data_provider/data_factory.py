@@ -5,7 +5,7 @@ from data_provider.data_loader import \
     SMAPSegLoader, SMDSegLoader, \
     SWATSegLoader, UEAloader
 from data_provider.data_dep_loader import \
-    Dataset_ETT_Decomposed \
+    Dataset_Custom_Decomposed \
         # Dataset_Custom_Decomposed, \
         # Dataset_PEMS_Decomposed
 
@@ -26,10 +26,10 @@ data_dict = {
     'SMD': SMDSegLoader,
     'SWAT': SWATSegLoader,
     'UEA': UEAloader,
-    'ETTh1_dep': Dataset_ETT_Decomposed,
-    'ETTh2_dep': Dataset_ETT_Decomposed,
-    'ETTm1_dep': Dataset_ETT_Decomposed,
-    'ETTm2_dep': Dataset_ETT_Decomposed,
+    'ETTh1_dep': Dataset_Custom_Decomposed,
+    'ETTh2_dep': Dataset_Custom_Decomposed,
+    'ETTm1_dep': Dataset_Custom_Decomposed,
+    'ETTm2_dep': Dataset_Custom_Decomposed,
     # 'Exchange_dep': Dataset_Custom_Decomposed,
     # 'Illness_dep': Dataset_Custom_Decomposed,
     # 'Weather_dep': Dataset_Custom_Decomposed,

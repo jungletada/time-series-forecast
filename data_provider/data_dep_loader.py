@@ -51,7 +51,7 @@ def merge_components(data_npy, k):
     decomp_data = np.stack([comp1, comp2, comp3], axis=-1) # [T, C, 3]
     return decomp_data
 
-class Dataset_ETT_Decomposed(Dataset):
+class Dataset_Custom_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None):
         self.args = args
@@ -78,29 +78,9 @@ class Dataset_ETT_Decomposed(Dataset):
         
         # k parameter for component merging
         self.k = getattr(args, 'selected_k', 1) # 增加默认值防止报错
-        
-        self.border_map = {
-            'ETTh': {
-                'start': [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len],
-                'end':   [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
-            },
-            'ETTm': {
-                'start': [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len],
-                'end':   [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
-            }
-        }
-        
-        if 'ETTm' in self.data_path:
-            self.borders = self.border_map['ETTm']
-        elif 'ETTh' in self.data_path:
-            self.borders = self.border_map['ETTh']
-        else:
-            # 增加鲁棒性：如果是其他自定义数据集，可能需要手动指定 borders
-            print(f"Warning: {self.data_path} not in [ETTh, ETTm], using default ETTh borders.")
-            self.borders = self.border_map['ETTh']
-            
+        self.use_mnn = True if getattr(args, 'use_mnn', 0) == 1 else False
         self.__read_data__()
-
+        
     def __read_data__(self):
         self.scaler = StandardScaler()
         base_name = os.path.splitext(self.data_path)[0]
@@ -119,22 +99,40 @@ class Dataset_ETT_Decomposed(Dataset):
         # 2. 读取 CSV 获取原始数据和时间戳
         csv_path = os.path.join(self.root_path, self.data_path)
         df_raw = pd.read_csv(csv_path)
+        num_train = int(len(df_raw) * 0.7) 
+        num_test = int(len(df_raw)  * 0.2)
+        num_vali = len(df_raw) - num_train - num_test
         
-        # --- Feature Selection ---
-        # df_raw columns: [date, col1, col2, ..., colN]
-        # data_npy channels corresponds to [col1, col2, ..., colN] (index 0 to N-1)
+        self.border_map = {
+            'ETTh': {
+                'start': [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len],
+                'end':   [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
+            },
+            'ETTm': {
+                'start': [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len],
+                'end':   [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
+            },
+            'custom': {
+                'start': [0,         num_train - self.seq_len, len(df_raw) - num_test - self.seq_len],
+                'end':   [num_train, num_train + num_vali, len(df_raw)]
+            }
+        }
+        
+        if 'ETTm' in self.data_path:
+            self.borders = self.border_map['ETTm']
+        elif 'ETTh' in self.data_path:
+            self.borders = self.border_map['ETTh']
+        else:
+            self.borders = self.border_map['custom']
         
         if self.features == 'M' or self.features == 'MS':
             # 取所有数据列
             cols_data = df_raw.columns[1:] 
             df_data = df_raw[cols_data]
-            # NPY 不需要筛选，保持所有通道
-            pass 
+
         elif self.features == 'S':
-            # 只取 target 列
             if self.target not in df_raw.columns:
-                 raise ValueError(f"Target {self.target} not found.")
-            
+                raise ValueError(f"Target {self.target} not found.")
             # 找到 target 在 "数据列" (去除date后) 中的索引
             data_cols = list(df_raw.columns[1:])
             target_idx = data_cols.index(self.target)
@@ -166,7 +164,6 @@ class Dataset_ETT_Decomposed(Dataset):
             df_stamp['day'] = df_stamp.date.dt.day
             df_stamp['weekday'] = df_stamp.date.dt.weekday
             df_stamp['hour'] = df_stamp.date.dt.hour
-            
             if 'ETTm' in self.data_path:
                 df_stamp['minute'] = df_stamp.date.dt.minute
                 df_stamp['minute'] = df_stamp['minute'] // 15
@@ -195,11 +192,13 @@ class Dataset_ETT_Decomposed(Dataset):
         else:
             raw_scaled = df_data.values
 
-        # 修改后:
-        self.data_decomp = data_processed            # 存储分解信号 [T, C, K]
+        self.data_decomp = data_processed                  # 存储分解信号 [T, C, K]
         self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
         self.data_stamp = data_stamp
-
+        
+        if self.use_mnn and self.set_type == 2:
+            self.__read_mnn_data__(self.data_original[start_idx:end_idx])
+        
     def __getitem__(self, index):
         s_begin = index
         s_end = s_begin + self.seq_len
@@ -219,6 +218,9 @@ class Dataset_ETT_Decomposed(Dataset):
         seq_x_original = seq_x_original[:, :, np.newaxis] 
 
         # C. 拼接: 原始信号在第0位 [Seq_Len, C, 1+K]
+        if self.use_mnn and self.set_type == 2:
+            seq_x_decomp = self.data_mnn_test[s_begin:s_end, :, :]
+           
         seq_x = np.concatenate([seq_x_original, seq_x_decomp], axis=-1)
         
         # ====================================================
@@ -244,6 +246,27 @@ class Dataset_ETT_Decomposed(Dataset):
 
         return seq_x, seq_y, seq_x_mark, seq_y_mark
     
+    def __read_mnn_data__(self, test_raw_data):
+        base_name = os.path.splitext(self.data_path)[0]
+        suffix = "_smoothed"
+        prefix = "all" if self.k is None else "pred"
+        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+        # ================== Use Residual Data for Test=====================================
+        data_mnn_test = np.load(data_mnn_test_path)
+        num_vars = test_raw_data.shape[-1]
+        print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+        
+        if data_mnn_test.shape[-1] == self.args.num_imf - 1: # we only learn residual in training mnn
+            data_mnn_test = data_mnn_test.reshape(-1, num_vars, self.args.num_imf - 1)
+            remain = test_raw_data.values - data_mnn_test.sum(axis=-1)
+            self.data_mnn_test = np.concatenate([remain.reshape(-1, num_vars, 1), data_mnn_test], axis=-1) # [T, C, K]
+        
+        elif data_mnn_test.shape[-1] == self.args.num_imf:
+            self.data_mnn_test = data_mnn_test # we don't need to learn residual in testing mnn
+        
+        else:
+            raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
+
     def __len__(self):
         # 原 self.data_x 已更名为 self.data_decomp
         return len(self.data_decomp) - self.seq_len - self.pred_len + 1

@@ -6,32 +6,52 @@ import torch
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
-from data_provider.m4 import M4Dataset, M4Meta
 from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
 def merge_components(data_npy, k):
-    print(f">>>>>>>>>>>> Merging components with k: {k}")
-    if k is None:
-        return data_npy
-    # 处理分解数据的通道合并
+    """
+    Merge IMFs into 3 components: High, Mid, Low frequencies.
+    Input: [T, C, N_IMFS]
+    Output: [T, C, 3]
+    """
     T, C, N_IMFS = data_npy.shape
-    k = min(k, N_IMFS - 1)
-    if k > 0 and k < N_IMFS - 1: 
-        comp1 = np.sum(data_npy[:, :, :k], axis=-1)
-        comp2 = data_npy[:, :, k]
-        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1)
-    elif k == 0: # The first component
+    
+    # 边界保护：确保 k 在有效范围内
+    if k < 0: k = 0
+    if k >= N_IMFS: k = N_IMFS - 1
+        
+    print(f"   > Merging components with Pivot k={k} (Total IMFs={N_IMFS})")
+
+    # 逻辑说明：
+    # 0 ~ k-1 : High Frequency (Sum)
+    # k       : Mid Frequency (Raw)
+    # k+1 ~ end : Low Frequency (Sum)
+    
+    if k == 0: 
+        # 特殊情况：第0个分量作为 Mid (通常不建议，除非IMFs非常少)
+        # 此时 High 为空（或者把第0个既当High又当Mid），这里逻辑调整为：
+        # comp1 (High) = 0 (或者全0矩阵，视具体需求，这里暂取第0个)
+        # comp2 (Mid)  = 1
+        # comp3 (Low)  = 2...end
         comp1 = data_npy[:, :, 0]
         comp2 = data_npy[:, :, 1]
         comp3 = np.sum(data_npy[:, :, 2:], axis=-1)
-    elif k == N_IMFS - 1: # The last component
-        comp1 = np.sum(data_npy[:, :, :N_IMFS - 2], axis=-1)
-        comp2 = data_npy[:, :, N_IMFS - 2]
-        comp3 = data_npy[:, :, N_IMFS - 1]
+    elif k == N_IMFS - 1: 
+        # 特殊情况：最后一个分量作为 Mid
+        comp1 = np.sum(data_npy[:, :, :N_IMFS-2], axis=-1)
+        comp2 = data_npy[:, :, N_IMFS-2]
+        comp3 = data_npy[:, :, N_IMFS-1]
+    else:
+        # 标准情况
+        # 注意 axis=-1 求和后维度会降低，需要 stack 恢复
+        comp1 = np.sum(data_npy[:, :, :k], axis=-1)      # High
+        comp2 = data_npy[:, :, k]                        # Mid
+        comp3 = np.sum(data_npy[:, :, k+1:], axis=-1)    # Low
 
-    decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
+    decomp_data = np.stack([comp1, comp2, comp3], axis=-1) # [T, C, 3]
     return decomp_data
+
 
 def split_residual(data_npy, data_processed):
     """Ablation Split residual signal from the processed data"""
@@ -410,6 +430,7 @@ class Dataset_Custom_Decomposed(Dataset):
             df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
             data_stamp = df_stamp.drop(['date'], 1).values
+        
         elif self.time_enc == 1:
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)

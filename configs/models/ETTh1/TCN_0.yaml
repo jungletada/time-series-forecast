@@ -1,4 +1,5 @@
 # predict_len=[720]
+model: TCN
 d_model: 36
 e_layers: 4
 dropout: 0.3

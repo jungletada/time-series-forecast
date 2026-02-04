@@ -7,7 +7,7 @@ import torch
 import torch.backends
 from exp.dep_long_term_forecasting import Exp_Dep_Long_Term_Forecast
 from exp.dep_short_term_forecasting import Dep_Short_Term_Forecasting
-from utils.tools import seed_everything, apply_model_config, apply_data_config, load_yaml, build_model_args
+from utils.tools import seed_everything, apply_data_config, build_model_args, get_config_for_pred_len
 
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
@@ -16,14 +16,13 @@ def get_args():
     parser.add_argument('--task_name', type=str, required=True, default='long_term_forecast',
                         help='task name, options:[long_term_forecast, short_term_forecast, imputation, classification, anomaly_detection]',
                         choices=['long_term_forecast', 'short_term_forecast', 'imputation', 'classification', 'anomaly_detection'])
-    parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
+    parser.add_argument('--is_training', type=int, default=1, help='status')
     parser.add_argument('--visualize', type=int, default=1, help='visualize the results')
     parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
-    parser.add_argument('--model_id', type=str, default='test', help='model id')
-    parser.add_argument('--model', type=str, required=True, default='Autoformer',
-                        help='model name, options: [Autoformer, Transformer, TimesNet]')
+    parser.add_argument('--model_id', type=str, default='TCN+NDA', help='model id')
+    parser.add_argument('--model', type=str, default='TCN', help='model name')
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
     # parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')           
     parser.add_argument('--model_configs', type=str, nargs=3, default=None,
@@ -190,14 +189,13 @@ def get_logger(log_file='run.log'):
   
 if __name__ == '__main__':
     args, parser = get_args()
-    # 用 data_config.yaml 覆盖还在默认值的数据参数（命令行优先）
     args = apply_data_config(args, parser)
     
     model_args_list = []
 
     for cfg_path in args.model_configs:
-        model_cfg = load_yaml(cfg_path)
-        model_args = build_model_args(args, model_cfg)
+        model_cfg_dict = get_config_for_pred_len(cfg_path, args.pred_len)
+        model_args = build_model_args(args, model_cfg_dict)
         model_args.data_config = args.data_config
         model_args.enc_in = args.enc_in
         model_args.dec_in = args.dec_in
@@ -235,10 +233,7 @@ if __name__ == '__main__':
     if args.is_training:
         for exp_time in range(args.itr):
             # setting record of experiments
-            if args.data_type == 'm4':
-                save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
-            else:
-                save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+            save_path =f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
             save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
             os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
             setting = {
@@ -270,10 +265,7 @@ if __name__ == '__main__':
     
     else:
         exp_time = 0
-        if args.data_type == 'm4':
-                save_path =f'{args.task_name}_{args.data_name}_{args.model}_#{exp_time}'
-        else:
-            save_path = f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
+        save_path = f'{args.task_name}_{args.data_name}_{args.model}_seq{args.seq_len}_pred{args.pred_len}_ft({args.features})_#{exp_time}'
         save_dir = os.path.join(args.data_name.replace('_dep', ''), save_path)
         os.makedirs(os.path.join(args.results, save_dir), exist_ok=True)
         setting = {
