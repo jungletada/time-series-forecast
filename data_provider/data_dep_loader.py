@@ -56,15 +56,9 @@ class Dataset_Custom_Decomposed(Dataset):
                  target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None):
         self.args = args
         # size [seq_len, label_len, pred_len]
-        if size is None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-            
+        self.seq_len = size[0]
+        self.label_len = size[1]
+        self.pred_len = size[2]
         assert flag in ['train', 'test', 'val']
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
@@ -114,7 +108,7 @@ class Dataset_Custom_Decomposed(Dataset):
             },
             'custom': {
                 'start': [0,         num_train - self.seq_len, len(df_raw) - num_test - self.seq_len],
-                'end':   [num_train, num_train + num_vali, len(df_raw)]
+                'end':   [num_train, num_train + num_vali,     len(df_raw)]
             }
         }
         
@@ -136,12 +130,13 @@ class Dataset_Custom_Decomposed(Dataset):
             # 找到 target 在 "数据列" (去除date后) 中的索引
             data_cols = list(df_raw.columns[1:])
             target_idx = data_cols.index(self.target)
-            
             df_data = df_raw[[self.target]]
-            
-            # 关键修正：NPY 数据也必须只保留 target 对应的通道
+            # NPY 数据也必须只保留 target 对应的通道
             # data_npy: [T, Total_C, K] -> [T, 1, K]
             data_npy = data_npy[:, target_idx:target_idx+1, :]
+            
+        else:
+            raise ValueError(f"Features {self.features} is not valid")
 
         # 3. 处理时间戳 (使用 .dt 加速)
         start_idx = self.borders['start'][self.set_type]
@@ -173,7 +168,9 @@ class Dataset_Custom_Decomposed(Dataset):
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.args.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
+        #########################################################
         # 4. 合并分量
+        #########################################################
         # Input: [T, C, N_IMFS] -> Output: [T, C, 3]
         data_processed = merge_components(data_npy, self.k)
         print(f"   > Loaded {current_flag_name}: X shape {data_processed.shape}")
@@ -247,14 +244,18 @@ class Dataset_Custom_Decomposed(Dataset):
         return seq_x, seq_y, seq_x_mark, seq_y_mark
     
     def __read_mnn_data__(self, test_raw_data):
+        """
+        Read MNN data for test.
+        Input: test_raw_data [T, C]
+        Output: self.data_mnn_test [T, C, K]
+        """
         base_name = os.path.splitext(self.data_path)[0]
         suffix = "_smoothed"
         prefix = "all" if self.k is None else "pred"
         data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
-        # ================== Use Residual Data for Test=====================================
         data_mnn_test = np.load(data_mnn_test_path)
         num_vars = test_raw_data.shape[-1]
-        print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
+        print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}, test_raw_data.shape: {test_raw_data.shape}")
         
         if data_mnn_test.shape[-1] == self.args.num_imf - 1: # we only learn residual in training mnn
             data_mnn_test = data_mnn_test.reshape(-1, num_vars, self.args.num_imf - 1)
@@ -262,7 +263,7 @@ class Dataset_Custom_Decomposed(Dataset):
             self.data_mnn_test = np.concatenate([remain.reshape(-1, num_vars, 1), data_mnn_test], axis=-1) # [T, C, K]
         
         elif data_mnn_test.shape[-1] == self.args.num_imf:
-            self.data_mnn_test = data_mnn_test # we don't need to learn residual in testing mnn
+            self.data_mnn_test = data_mnn_test # Abalation: we don't need to learn residual in testing mnn
         
         else:
             raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
