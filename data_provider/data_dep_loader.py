@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 warnings.filterwarnings('ignore')
 
+
 def merge_components(data_npy, k):
     """
     Merge IMFs into 3 components: High, Mid, Low frequencies.

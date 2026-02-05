@@ -6,8 +6,7 @@ from data_provider.data_loader import \
     SWATSegLoader, UEAloader
 from data_provider.data_dep_loader import \
     Dataset_Custom_Decomposed \
-        # Dataset_Custom_Decomposed, \
-        # Dataset_PEMS_Decomposed
+    # Dataset_PEMS_Decomposed
 
 from data_provider.uea import collate_fn
 from torch.utils.data import DataLoader
@@ -30,11 +29,11 @@ data_dict = {
     'ETTh2_dep': Dataset_Custom_Decomposed,
     'ETTm1_dep': Dataset_Custom_Decomposed,
     'ETTm2_dep': Dataset_Custom_Decomposed,
-    # 'Exchange_dep': Dataset_Custom_Decomposed,
-    # 'Illness_dep': Dataset_Custom_Decomposed,
-    # 'Weather_dep': Dataset_Custom_Decomposed,
-    # 'Traffic_dep': Dataset_Custom_Decomposed,
-    # 'Electricity_dep': Dataset_Custom_Decomposed,
+    'Exchange_dep': Dataset_Custom_Decomposed,
+    'Illness_dep': Dataset_Custom_Decomposed,
+    'Weather_dep': Dataset_Custom_Decomposed,
+    'Traffic_dep': Dataset_Custom_Decomposed,
+    'Electricity_dep': Dataset_Custom_Decomposed,
     # 'PEMS_dep': Dataset_PEMS_Decomposed,
 }
 

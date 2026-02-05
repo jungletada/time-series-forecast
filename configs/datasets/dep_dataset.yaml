@@ -36,7 +36,7 @@ Exchange_dep:
   data_path: exchange_rate.csv
   selected_k: 3
   target: OT
-  channels: 7
+  channels: 8
 
 Illness_dep:
   data_type: Illness_dep
@@ -52,7 +52,7 @@ Weather_dep:
   data_path: weather.csv
   selected_k: 3
   target: OT
-  channels: 7
+  channels: 21
 
 Traffic_dep:
   data_type: Traffic_dep
@@ -60,7 +60,7 @@ Traffic_dep:
   data_path: traffic.csv
   selected_k: 3
   target: OT
-  channels: 7
+  channels: 862
 
 Electricity_dep:
   data_type: Electricity_dep
@@ -68,7 +68,7 @@ Electricity_dep:
   data_path: electricity.csv
   selected_k: 3
   target: OT
-  channels: 7
+  channels: 321
 
 PEMS03_dep:
   data_type: PEMS_dep

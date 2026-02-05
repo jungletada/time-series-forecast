@@ -9,11 +9,11 @@ patch_len=(32 32 32 32)
 for i in "${!pred_lens[@]}"; do
     python -u run.py \
     --task_name long_term_forecast \
-    --is_training 0 \
+    --is_training 1 \
     --data_name Electricity \
     --model_id $model_name \
     --model $model_name \
-    --features S \
+    --features M \
     --seq_len 96 \
     --label_len 48 \
     --pred_len ${pred_lens[$i]} \

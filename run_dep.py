@@ -6,7 +6,6 @@ import argparse
 import torch
 import torch.backends
 from exp.dep_long_term_forecasting import Exp_Dep_Long_Term_Forecast
-from exp.dep_short_term_forecasting import Dep_Short_Term_Forecasting
 from utils.tools import seed_everything, apply_data_config, build_model_args, get_config_for_pred_len
 
 def get_args():
@@ -24,7 +23,6 @@ def get_args():
     parser.add_argument('--model_id', type=str, default='TCN+NDA', help='model id')
     parser.add_argument('--model', type=str, default='TCN', help='model name')
     parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
-    # parser.add_argument('--model_config', type=str, default='configs/models/model_config.yaml', help='model config')           
     parser.add_argument('--model_configs', type=str, nargs=3, default=None,
                         help='three yaml files for three models')
     # data loader
@@ -38,6 +36,8 @@ def get_args():
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily," \
                             "b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
     parser.add_argument('--selected_k', type=int, default=1, help='selected k for IMF decomposition')
+    parser.add_argument('--train_component', type=int, default=None, help='train component n')
+    parser.add_argument('--use_parallel', type=int, default=0, help='use parallel training')
     parser.add_argument('--checkpoints', type=str, default='checkpoints/', help='location of model checkpoints')
     parser.add_argument('--results', type=str, default='results/', help='location of result files')
     # forecasting task
@@ -225,10 +225,8 @@ if __name__ == '__main__':
 
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Dep_Long_Term_Forecast
-    elif args.task_name == 'short_term_forecast':
-        Exp = Dep_Short_Term_Forecasting
     else:
-        Exp = Exp_Dep_Long_Term_Forecast
+        raise ValueError(f"Task name {args.task_name} is not supported")
 
     if args.is_training:
         for exp_time in range(args.itr):

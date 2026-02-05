@@ -1,3 +1,4 @@
+
 "common":
   des: test
   loss: MSE
@@ -18,19 +19,17 @@
   patience: 10
   lradj: type1
 
-
 "96":
-  dropout: 0.8
-  d_model: 128
-  d_ff: 256
+  dropout: 0.6918350990375025
+  d_model: 32
+  d_ff: 32
   e_layers: 2
-  d_layers: 1
+  d_layers: 2
   patch_len: 2
-  learning_rate: 0.0002
-  batch_size: 32
+  learning_rate: 0.0006402992490726466
+  batch_size: 24
   train_epochs: 10
   patience: 5
-
 
 "192":
   dropout: 0.8
@@ -58,8 +57,8 @@
 
 "720":
   dropout: 0.8
-  d_model: 64
-  d_ff: 64
+  d_model: 128
+  d_ff: 128
   e_layers: 2
   d_layers: 1
   patch_len: 2

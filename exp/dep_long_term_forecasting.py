@@ -6,7 +6,7 @@ import json
 import torch
 import torch.nn as nn
 from torch import optim
-
+import torch.multiprocessing as mp # 确保导入了多进程库
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
@@ -208,70 +208,90 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         model.train()
         return np.average(total_loss)
     
+# ============================================================
+    # 核心修改：train 函数支持指定 component
+    # ============================================================
     def train(self, setting):
-        # 1. 统一加载数据 (为了节省内存，可以在主进程加载，或者在子进程加载)
-        # 如果数据量巨大，多进程传递数据会很慢。建议这里只加载一次。
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
         
-        # 2. 检查是否启用多进程并行
-        # 假设 args.use_parallel = True 开启并行
         use_parallel = getattr(self.args, 'use_parallel', False) 
         
-        if use_parallel:
-            self.logger.info(">>> Starting Parallel Training for Components <<<")
-            import torch.multiprocessing as mp
-            
-            # 需要设置启动方法，spawn 比较安全
-            try:
-                mp.set_start_method('spawn', force=True)
-            except RuntimeError:
-                pass
+        # ----------------------------------------------------
+        # [新增] 确定要训练的分量列表
+        # ----------------------------------------------------
+        if self.args.train_component is not None:
+            # 确保输入合法
+            if 0 <= self.args.train_component < self.args.num_imf:
+                target_components = [self.args.train_component]
+                self.logger.info(f">>> ONLY Training Component-{self.args.train_component} <<<")
+            else:
+                raise ValueError(f"train_component {self.args.train_component} is out of range [0, {self.args.num_imf-1}]")
+        else:
+            # 默认训练所有分量
+            target_components = range(self.args.num_imf)
+            self.logger.info(f">>> Training ALL Components: {list(target_components)} <<<")
+        # ----------------------------------------------------
 
-            processes = []
-            # 注意：多进程无法直接修改 self.model 中的对象并返回
-            # 所以通常需要把模型保存到磁盘，最后再加载回来
+        if use_parallel:
+            self.logger.info(">>> Starting Parallel Training <<<")
             
-            for k in range(self.args.num_imf):
-                model = self.model[k]
-                model_args = self.args.model_args_list[k]
+            # 只有当需要训练多个分量时，多进程才有意义；如果是单分量，直接串行即可
+            if len(target_components) > 1:
+                try:
+                    mp.set_start_method('spawn', force=True)
+                except RuntimeError:
+                    pass
+
+                processes = []
+                for k in target_components: # 遍历目标列表
+                    model = self.model[k]
+                    model_args = self.args.model_args_list[k]
+                    
+                    p = mp.Process(target=self._train_wrapper, args=(
+                        k, model, model_args, setting, 
+                        train_loader, vali_loader, test_loader
+                    ))
+                    p.start()
+                    processes.append(p)
                 
-                # 创建进程
-                p = mp.Process(target=self._train_wrapper, args=(
-                    k, model, model_args, setting, 
-                    train_loader, vali_loader, test_loader
-                ))
-                p.start()
-                processes.append(p)
-            
-            # 等待所有进程结束
-            for p in processes:
-                p.join()
+                for p in processes:
+                    p.join()
                 
-            # 重新加载训练好的模型参数到主进程
-            self.logger.info(">>> Parallel Training Finished. Reloading models... <<<")
-            for k in range(self.args.num_imf):
-                path = os.path.join(self.args.checkpoints, setting['save_dir'], f'component_{k}', 'checkpoint.pth')
-                self.model[k].load_state_dict(torch.load(path))
+                self.logger.info(">>> Parallel Training Finished. Reloading models... <<<")
+                for k in target_components:
+                    path = os.path.join(self.args.checkpoints, setting['save_dir'], f'component_{k}', 'checkpoint.pth')
+                    if os.path.exists(path):
+                        self.model[k].load_state_dict(torch.load(path))
+            else:
+                # 虽然开了 parallel 但只训练一个分量，直接退化为串行
+                k = target_components[0]
+                self._train_single_component_wrapper(k, setting, train_loader, vali_loader, test_loader)
                 
         else:
-            self.logger.info(">>>>> Starting Sequential Training for Components <<<")
-            # 串行循环
-            for k in range(self.args.num_imf):
-                model_args = self.args.model_args_list[k]
-                self.logger.info(f"--- Training Component {k} ---")
-                
-                # 调用子训练函数
-                trained_model = self._train_single_component(
-                    self.model[k], model_args, k, setting,
-                    train_loader, vali_loader, test_loader
-                )
-                # 更新 self.model
-                self.model[k] = trained_model
+            self.logger.info(">>>>> Starting Sequential Training <<<")
+            for k in target_components: # 遍历目标列表
+                self._train_single_component_wrapper(k, setting, train_loader, vali_loader, test_loader)
 
         return self.model
 
+    def _train_single_component_wrapper(self, k, setting, train_loader, vali_loader, test_loader):
+        """辅助函数，用于串行训练时的调用"""
+        model_args = self.args.model_args_list[k]
+        self.logger.info(f"--- Training Component {k} ---")
+        
+        trained_model = self._train_single_component(
+            self.model[k], 
+            model_args, 
+            k, 
+            setting,
+            train_loader, 
+            vali_loader, 
+            test_loader
+        )
+        self.model[k] = trained_model
+        
     # 多进程所需的 Wrapper (因为类方法直接传给 Process 容易 pickling error)
     def _train_wrapper(self, k, model, model_args, setting, train_loader, vali_loader, test_loader):
         # 重新设置一下 device，因为在子进程中
@@ -282,6 +302,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         self._train_single_component(model, model_args, k, setting, train_loader, vali_loader, test_loader)
         
     def test(self, setting, test=0):
+        # [未修改] test 函数不需要改动，它会自动检测 checkpoint 是否存在
+        # 如果你只训练了 component-0，test 时会加载 comp-0，如果 comp-1 没训练，
+        # 它会打印 warning 并跳过加载（使用随机初始化的参数），或者你可以根据需要修改 test 逻辑
         test_data, test_loader = self._get_data(flag='test')
         base_path = os.path.join(self.args.checkpoints, setting['save_dir'])
 
@@ -292,7 +315,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 self.model[k].load_state_dict(torch.load(comp_ckpt_path))
                 self.logger.info(f"Loaded Component-{k} from {comp_ckpt_path}")
             else:
-                self.logger.warning(f"Checkpoint for Component-{k} not found at {comp_ckpt_path}!")
+                self.logger.warning(f"Checkpoint for Component-{k} not found at {comp_ckpt_path}! Using random init.")
 
         # 1. 初始化容器
         # 用于存储最终总和 (Original Scale)
