@@ -579,7 +579,7 @@ class Dataset_PEMS_Decomposed(Dataset):
         use_mnn = getattr(args, 'use_mnn', 0)
         self.use_residual = True
         self.use_mnn = True if use_mnn == 1 else False
-        self.k = 4 # self.args.selected_k
+        self.k = self.args.selected_k
         # size [seq_len, label_len, pred_len]
         self.seq_len = size[0]
         self.label_len = size[1]

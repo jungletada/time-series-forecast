@@ -275,7 +275,7 @@ class Dataset_Custom_Decomposed(Dataset):
 
 class Dataset_PEMS_Decomposed(Dataset):
     def __init__(
-        self, args, root_path, flag='train', size=None, feature='M', data_path='PEMS03.npz',
+        self, args, root_path, flag='train', size=None, features='M', data_path='PEMS03.npz',
         target=10, scale=True, time_enc=0, freq='h', seasonal_patterns=None):
         self.args = args
         self.mnn = args.mnn
@@ -290,7 +290,7 @@ class Dataset_PEMS_Decomposed(Dataset):
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
 
-        self.features = feature
+        self.features = features
         self.target = int(target) 
         self.scale = scale
         self.time_enc = time_enc
@@ -304,7 +304,7 @@ class Dataset_PEMS_Decomposed(Dataset):
 
     def __read_data__(self):
         self.scaler = StandardScaler()
-        data_file = os.path.join(self.root_path, self.data_path)
+        data_file = os.path.join(self.root_path, self.data_path.replace('.npz', '_scaled.npy'))
         fname_map = {0: 'train', 1: 'val', 2: 'test'}
         current_flag_name = fname_map[self.set_type]
         # 加载带 seq_len 的文件名
@@ -316,45 +316,61 @@ class Dataset_PEMS_Decomposed(Dataset):
         else:
             raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}.")
 
-        raw_data = np.load(data_file, allow_pickle=True)
-        raw_data = raw_data['data'][:, :, 0] # Use Flow -> [T, C]
-        
+        raw_scaled = np.load(data_file)
         # 1. 划分数据集索引
         train_ratio = 0.6
         valid_ratio = 0.2
-        len_data = len(raw_data)
-        len_train = int(train_ratio * len(raw_data))
+        len_data = len(raw_scaled)
+        len_train = int(train_ratio * len(raw_scaled))
         val_end = int((train_ratio + valid_ratio) * len_data)
         type_len = {0: len_train, 1: val_end - len_train, 2: len_data - val_end}
         s0, e0 = 0, len_train
+        s1, e1 = len_train, val_end
         s2, e2 = val_end, len_data
-
+        self.borders = {
+            'start': [s0, s1, s2],
+            'end': [e0, e1, e2]
+        }
         if len(decomp_npy) != type_len[self.set_type]:
             # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
             print(f"Error: NPY len ({len(decomp_npy)}) != CSV split len ({type_len[self.set_type]}).")
             exit(0)
-                
+        
         if self.features == 'S':
             decomp_npy = decomp_npy[:, [self.target], :]    # (T, 1, K)
-            raw_data = raw_data[:, [self.target]]           # (T, 1)
+            raw_scaled = raw_scaled[:, [self.target]]       # (T, 1)
         
         # 读取原始数据并标准化
-        if self.scale:
-            self.scaler.fit(raw_data[s0:e0])
-            raw_scaled = self.scaler.transform(raw_data)
-        else:
-            raw_scaled = raw_data
-       
+        # if self.scale:
+        #     self.scaler.fit(raw_scaled[s0:e0])
+        #     raw_scaled = self.scaler.transform(raw_scaled)            
+        # else:
+        #     raw_scaled = raw_scaled
+        # np.save(f"{self.base_name}_scaled_dataset.npy", raw_scaled)
+        print(f">>>>>>>>>>>>> Scale, raw_data.shape: {raw_scaled.shape}, raw_scaled.shape: {raw_scaled.shape}")
         # 读取分量并合并为3个分量
         data_processed = merge_components(decomp_npy, self.k) # [T, C, K]
-        print(f">>>>>>>>>>>>> {current_flag_name} {self.use_mnn}: data_processed.shape: {data_processed.shape}")
+        print(f">>>>>>>>>>>>> {current_flag_name}, Use MNN: {self.use_mnn}, data_processed.shape: {data_processed.shape}")
         if self.use_mnn and self.set_type == 2:
-            self.__read_mnn_data__(raw_data[s2:e2])
+            self.__read_mnn_data__(raw_scaled[s2:e2])
             
         start_idx = self.borders['start'][self.set_type]
         end_idx = self.borders['end'][self.set_type]
         self.data_decomp = data_processed                  # 存储分解信号 [T, C, K]
         self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
+        
+        # 验证 self.data_decomp 和 self.data_original 是否相等
+        # print(f">>>>>>>>>>>>> self.data_decomp.shape: {self.data_decomp.shape}, self.data_original.shape: {self.data_original.shape}")  
+        # valid_decomp = data_processed.sum(axis=-1)
+        # print(f">>>>>>>>>>>>> max(abs(valid_decomp)): {np.max(np.abs(valid_decomp))}")
+        # print(f">>>>>>>>>>>>> max(abs(self.data_original)): {np.max(np.abs(self.data_original))}")
+        # if np.allclose(valid_decomp, self.data_original):
+        #     print(f">>>>>>>>>>>>> valid_decomp == self.data_original: True")
+        # else:
+        #     print(f">>>>>>>>>>>>> valid_decomp == self.data_original: False")
+        #     exit(0)
+        # # ================== 诊断代码结束 ==================
+        
         
     def __read_mnn_data__(self, test_raw_data):
         k = None if self.args.num_imf == 15 else self.k
@@ -421,10 +437,17 @@ class Dataset_PEMS_Decomposed(Dataset):
 
     def __len__(self):
         if self.set_type == 2:
-            return (self.data_decomp.shape[1] - self.seq_len - self.pred_len + 1) // 12
+            return (self.data_decomp.shape[0] - self.seq_len - self.pred_len + 1) // 12
         else:
-            return self.data_decomp.shape[1] - self.seq_len - self.pred_len + 1
+            return self.data_decomp.shape[0] - self.seq_len - self.pred_len + 1
 
     def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+        # data shape: [Batch, Seq_Len, Nodes]
+        shape = data.shape
+        # 展平为 [Batch * Seq_Len, Nodes] 进行反归一化
+        data_flat = data.reshape(-1, shape[-1])
+        data_inv = self.scaler.inverse_transform(data_flat)
+        # 还原形状
+        return data_inv.reshape(shape)
+    
     

@@ -286,6 +286,7 @@ class ShortTermDecomposition:
         if self.scale:
             self.scaler.fit(train_data)
             data = self.scaler.transform(data)
+            np.save(f"{self.file_path.replace('.npz', '')}_scaled.npy", data)
             print("  > Data Scaled (Fit on Train set), warning: data will be scaled before decomposition.")
         
         print(f"  > Borders: Train[0:{border['end'][0]}], \n"
@@ -326,6 +327,7 @@ class ShortTermDecomposition:
         # -> 验证data和分解的3个分量之和是否相等
         if np.allclose(data, np.concatenate([train_sum, val_sum, test_sum], axis=0)):
             print("  > Data and decomposed data are equal.")
+            np.save(f"{base_name}_scaled.npy", data)
         else:
             print("  > Data and decomposed data are not equal, please check the decomposition.")
             exit(0)
@@ -374,8 +376,8 @@ def decompose_short_term_data(data_root, K_IMFS):
             root_path=os.path.join(data_root, 'PEMS'),
             data_file=data_file,
             max_imfs=K_IMFS,
-            seq_len=36,
-            scale=False)
+            seq_len=96,
+            scale=True)
         decomposer.run()
     
 if __name__ == "__main__":
