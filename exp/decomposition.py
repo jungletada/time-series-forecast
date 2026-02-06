@@ -205,17 +205,16 @@ class LongTermDecomposition:
               f"  > Saved Test {test_tensor.shape} to {test_save_path}\n")
 
 class ShortTermDecomposition:
-    def __init__(self, data_type, root_path, data_file, max_imfs=12, seq_len=96, scale=False):
+    def __init__(self, data_type, root_path, data_file, max_imfs=12, seq_len=96, scale=True):
         self.data_type = data_type
         self.root_path = root_path
         self.data_file = data_file
         self.file_path = os.path.join(root_path, data_file)
         self.max_imfs = max_imfs
         self.seq_len = seq_len
-        self.scale = scale # 是否在分解前归一化，默认不归一化
+        self.scale = scale # 是否在分解前归一化，默认是归一化
         
         self.emd = EMD()
-        # 针对 ETTm 等长序列，适当放宽迭代限制或使用 CEEMDAN 可能更好，但这里保持原样
         self.emd.MAX_ITERATION = 200
         
         # 用于归一化的 Scaler
@@ -278,7 +277,6 @@ class ShortTermDecomposition:
         val_end = int((train_ratio + valid_ratio) * len_data)
 
         train_data = data[:len_train]
-
         border = {
             'start': [0,         len_train,  val_end],
             'end':   [len_train, val_end,    len_data]
@@ -288,7 +286,7 @@ class ShortTermDecomposition:
         if self.scale:
             self.scaler.fit(train_data)
             data = self.scaler.transform(data)
-            print("  > Data Scaled (Fit on Train set), warning: data will be scaled after decomposition.")
+            print("  > Data Scaled (Fit on Train set), warning: data will be scaled before decomposition.")
         
         print(f"  > Borders: Train[0:{border['end'][0]}], \n"
               f"  > Val[{border['start'][1]}:{border['end'][1]}], \n"
@@ -311,8 +309,7 @@ class ShortTermDecomposition:
         test_tensor  = np.stack(test_list, axis=1)
         
         base_name = self.file_path.replace('.npz', '')
-        # 建议文件名带上 seq_len 防止混淆
-        suffix = f"_sl{self.seq_len}_cd"
+        suffix = f"_sl{self.seq_len}_scaled_cd"
         np.save(f"{base_name}_train{suffix}.npy", train_tensor)
         np.save(f"{base_name}_val{suffix}.npy", val_tensor)
         np.save(f"{base_name}_test{suffix}.npy",  test_tensor)
@@ -320,8 +317,19 @@ class ShortTermDecomposition:
         print(f"  > Saved Train {train_tensor.shape} to {base_name}_train{suffix}.npy,\n" 
               f"  > Saved Val {val_tensor.shape} to {base_name}_val{suffix}.npy,\n" 
               f"  > Saved Test {test_tensor.shape} to {base_name}_test{suffix}.npy\n")
-
-
+        
+        # 验证：分解的3个分量之和等于原始信号：
+        train_sum = train_tensor.sum(axis=-1) # [T, C]
+        val_sum = val_tensor.sum(axis=-1) # [T, C]
+        test_sum = test_tensor.sum(axis=-1) # [T, C]
+        np.concatenate([train_sum, val_sum, test_sum], axis=0) # [L, C]
+        # -> 验证data和分解的3个分量之和是否相等
+        if np.allclose(data, np.concatenate([train_sum, val_sum, test_sum], axis=0)):
+            print("  > Data and decomposed data are equal.")
+        else:
+            print("  > Data and decomposed data are not equal, please check the decomposition.")
+            exit(0)
+       
 def decompose_long_term_data(data_root, K_IMFS):
     DATA_LIST = [
         (f'{data_root}/ETT-small', 'ETTh', 'ETTh1.csv'),
@@ -359,17 +367,19 @@ def decompose_long_term_data(data_root, K_IMFS):
                 seq_len=seq_len)
             decomposer.run()
  
-
+def decompose_short_term_data(data_root, K_IMFS):
+    for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
+        decomposer = ShortTermDecomposition(
+            data_type='PEMS', 
+            root_path=os.path.join(data_root, 'PEMS'),
+            data_file=data_file,
+            max_imfs=K_IMFS,
+            seq_len=36,
+            scale=False)
+        decomposer.run()
+    
 if __name__ == "__main__":
     K_IMFS = 15
     data_root = 'dataset'
-    decompose_long_term_data(data_root, K_IMFS)
-    # for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
-    #     decomposer = ShortTermDecomposition(
-    #         data_type='PEMS', 
-    #         root_path=os.path.join(data_root, 'PEMS'),
-    #         data_file=data_file,
-    #         max_imfs=K_IMFS,
-    #         seq_len=96,
-    #         scale=False)
-    #     decomposer.run()
+    # decompose_long_term_data(data_root, K_IMFS)
+    decompose_short_term_data(data_root, K_IMFS)

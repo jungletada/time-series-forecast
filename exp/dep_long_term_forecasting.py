@@ -30,7 +30,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
             self.logger.info(f'Building model {i} with specific args: {model_args}')
             
             # 使用各自的配置实例化
-            model = self.model_dict[self.args.model].Model(model_args).float()
+            model = self.model_dict[model_args.model].Model(model_args).float()
             
             if self.args.use_multi_gpu and self.args.use_gpu:
                 model = nn.DataParallel(model, device_ids=self.args.device_ids)
@@ -208,7 +208,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         model.train()
         return np.average(total_loss)
     
-# ============================================================
+    # ============================================================
     # 核心修改：train 函数支持指定 component
     # ============================================================
     def train(self, setting):
@@ -419,8 +419,7 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
 
         mae, mse, rmse, mape, mspe = metric(preds_total, trues_total)
-        self.logger.info(f'>>>> TOTAL SUM Metrics (Original Scale) <<<<')
-        self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}'.format(mse, mae, rmse))
+        
 
         # ============================================================
         # 2. [新增] 报告每个分量的结果 (Normalized Scale)
@@ -432,14 +431,12 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
             # 拼接该分量的所有 batch
             p_k = np.concatenate(preds_comps[k], axis=0)
             t_k = np.concatenate(trues_comps[k], axis=0)
-            
-            # 计算指标
             mae_k, mse_k, rmse_k, _, _ = metric(p_k, t_k)
-            
-            # 打印
             self.logger.info(f'Component-{k}: mse:{mse_k:.5f}, mae:{mae_k:.5f}')
             comp_metrics.append([mse_k, mae_k])
-        
+            
+        self.logger.info(f'>>>> TOTAL SUM Metrics (Original Scale) <<<<')
+        self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}'.format(mse, mae, rmse))
         # ============================================================
         # 保存
         # ============================================================
@@ -449,5 +446,5 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         
         # 可选：保存分量的 Metrics
         np.save(os.path.join(result_path, 'metrics_components.npy'), np.array(comp_metrics))
-
+        self.logger.info(f">>>>>>>>>>>>>>>>>>>>>> saved metrics to {result_path}\n\n")
         return

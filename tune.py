@@ -35,7 +35,7 @@ def objective(trial, base_args, parser):
         search_params['learning_rate'] = trial.suggest_float("learning_rate", 1e-4, 1e-3, log=True)
         search_params['patch_len'] = trial.suggest_categorical("patch_len", [2, 4, 8])
         search_params['d_model'] = trial.suggest_categorical("d_model", [32, 64, 96, 128])
-        search_params['d_ff'] = trial.suggest_categorical("d_model", [32, 64, 96, 128])
+        search_params['d_ff'] = trial.suggest_categorical("d_ff", [32, 64, 96, 128])
         search_params['e_layers'] = trial.suggest_int("e_layers", 1, 3)
         search_params['d_layers'] = trial.suggest_int("d_layers", 1, 3)
         

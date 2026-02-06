@@ -2,7 +2,7 @@ ETTh1_dep:
   data_type: ETTh1_dep
   root_path: dataset/ETT-small/
   data_path: ETTh1.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 7
 
@@ -10,7 +10,7 @@ ETTh2_dep:
   data_type: ETTh2_dep
   root_path: dataset/ETT-small/
   data_path: ETTh2.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 7
 
@@ -18,7 +18,7 @@ ETTm1_dep:
   data_type: ETTm1_dep
   root_path: dataset/ETT-small/
   data_path: ETTm1.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 7
 
@@ -26,7 +26,7 @@ ETTm2_dep:
   data_type: ETTm2_dep
   root_path: dataset/ETT-small/
   data_path: ETTm2.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 7
 
@@ -34,7 +34,7 @@ Exchange_dep:
   data_type: Exchange_dep
   root_path: dataset/exchange_rate/
   data_path: exchange_rate.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 8
 
@@ -42,7 +42,7 @@ Illness_dep:
   data_type: Illness_dep
   root_path: dataset/illness/
   data_path: national_illness.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 7
 
@@ -50,7 +50,7 @@ Weather_dep:
   data_type: Weather_dep
   root_path: dataset/weather/
   data_path: weather.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 21
 
@@ -58,7 +58,7 @@ Traffic_dep:
   data_type: Traffic_dep
   root_path: dataset/traffic/
   data_path: traffic.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 862
 
@@ -66,7 +66,7 @@ Electricity_dep:
   data_type: Electricity_dep
   root_path: dataset/electricity/
   data_path: electricity.csv
-  selected_k: 3
+  pivot: 3
   target: OT
   channels: 321
 
@@ -74,7 +74,7 @@ PEMS03_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS03.npz
-  selected_k: 4
+  pivot: 4
   channels: 358
   target: 141
 
@@ -82,7 +82,7 @@ PEMS04_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS04.npz
-  selected_k: 4
+  pivot: 4
   channels: 307
   target: 97
 
@@ -90,7 +90,7 @@ PEMS07_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS07.npz
-  selected_k: 4
+  pivot: 4
   channels: 883
   target: 178
 
@@ -98,6 +98,6 @@ PEMS08_dep:
   data_type: PEMS_dep
   root_path: dataset/PEMS/
   data_path: PEMS08.npz
-  selected_k: 4
+  pivot: 4
   channels: 170
   target: 9

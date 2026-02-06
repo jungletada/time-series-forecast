@@ -1,5 +1,6 @@
 
 "common":
+  model: TimeFilter
   des: test
   loss: MSE
   use_amp: false
@@ -20,14 +21,14 @@
   lradj: type1
 
 "96":
-  dropout: 0.7111332433096488
-  d_model: 32
-  d_ff: 32
-  e_layers: 2
+  batch_size: 32
+  d_ff: 128
   d_layers: 2
-  patch_len: 8
-  learning_rate: 0.004856293034748019
-  batch_size: 16
+  d_model: 96
+  dropout: 0.7123982511730508
+  e_layers: 2
+  learning_rate: 0.002542011780149168
+  patch_len: 16
   train_epochs: 10
   patience: 5
 

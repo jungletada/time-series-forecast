@@ -70,21 +70,18 @@ class Dataset_Custom_Decomposed(Dataset):
         self.time_enc = time_enc
         self.root_path = root_path
         self.data_path = data_path
-        
+        self.base_name = os.path.splitext(self.data_path)[0] # 构造文件名
         # k parameter for component merging
-        self.k = getattr(args, 'selected_k', 1) # 增加默认值防止报错
+        self.k = getattr(args, 'pivot', 1) # 增加默认值防止报错
         self.use_mnn = True if getattr(args, 'use_mnn', 0) == 1 else False
         self.__read_data__()
         
     def __read_data__(self):
         self.scaler = StandardScaler()
-        base_name = os.path.splitext(self.data_path)[0]
-        
-        # 1. 构造文件名
         fname_map = {0: 'train', 1: 'val', 2: 'test'}
         current_flag_name = fname_map[self.set_type]
-        # 你的 decomposition.py 生成的文件名应该包含 _scaled_cd
-        npy_path = os.path.join(self.root_path, f"{base_name}_{current_flag_name}_sl{self.seq_len}_scaled_cd.npy")
+        # decomposition.py 生成的文件名应该包含 _scaled_cd
+        npy_path = os.path.join(self.root_path, f"{self.base_name}_{current_flag_name}_sl{self.seq_len}_scaled_cd.npy")
         
         if os.path.exists(npy_path):
             data_npy = np.load(npy_path) # [Split_Len, Total_Channels, N_IMFS]
@@ -250,10 +247,9 @@ class Dataset_Custom_Decomposed(Dataset):
         Input: test_raw_data [T, C]
         Output: self.data_mnn_test [T, C, K]
         """
-        base_name = os.path.splitext(self.data_path)[0]
         suffix = "_smoothed"
         prefix = "all" if self.k is None else "pred"
-        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{base_name}_test_sl{self.seq_len}_{self.mnn}_cd{suffix}.npy")
+        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
         data_mnn_test = np.load(data_mnn_test_path)
         num_vars = test_raw_data.shape[-1]
         print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}, test_raw_data.shape: {test_raw_data.shape}")
@@ -275,3 +271,160 @@ class Dataset_Custom_Decomposed(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+    
+
+class Dataset_PEMS_Decomposed(Dataset):
+    def __init__(
+        self, args, root_path, flag='train', size=None, feature='M', data_path='PEMS03.npz',
+        target=10, scale=True, time_enc=0, freq='h', seasonal_patterns=None):
+        self.args = args
+        self.mnn = args.mnn
+        self.use_residual = True
+        self.k = getattr(args, 'pivot', 1) # 增加默认值防止报错
+        # size [seq_len, label_len, pred_len]
+        self.seq_len = size[0]
+        self.label_len = size[1]
+        self.pred_len = size[2]
+        # init
+        assert flag in ['train', 'test', 'val']
+        type_map = {'train': 0, 'val': 1, 'test': 2}
+        self.set_type = type_map[flag]
+
+        self.features = feature
+        self.target = int(target) 
+        self.scale = scale
+        self.time_enc = time_enc
+        self.freq = freq
+
+        self.root_path = root_path
+        self.data_path = data_path
+        self.base_name = os.path.splitext(self.data_path)[0]
+        self.use_mnn = True if getattr(args, 'use_mnn', 0) == 1 else False
+        self.__read_data__()
+
+    def __read_data__(self):
+        self.scaler = StandardScaler()
+        data_file = os.path.join(self.root_path, self.data_path)
+        fname_map = {0: 'train', 1: 'val', 2: 'test'}
+        current_flag_name = fname_map[self.set_type]
+        # 加载带 seq_len 的文件名
+        npy_path = os.path.join(self.root_path, f"{self.base_name}_{current_flag_name}_sl{self.seq_len}_scaled_cd.npy")
+        
+        if os.path.exists(npy_path):
+            decomp_npy = np.load(npy_path)
+            print(f"Loaded decomposed data from {npy_path}")
+        else:
+            raise FileNotFoundError(f"Decomposed data not found. Looked for {npy_path}.")
+
+        raw_data = np.load(data_file, allow_pickle=True)
+        raw_data = raw_data['data'][:, :, 0] # Use Flow -> [T, C]
+        
+        # 1. 划分数据集索引
+        train_ratio = 0.6
+        valid_ratio = 0.2
+        len_data = len(raw_data)
+        len_train = int(train_ratio * len(raw_data))
+        val_end = int((train_ratio + valid_ratio) * len_data)
+        type_len = {0: len_train, 1: val_end - len_train, 2: len_data - val_end}
+        s0, e0 = 0, len_train
+        s2, e2 = val_end, len_data
+
+        if len(decomp_npy) != type_len[self.set_type]:
+            # 这一步非常关键，如果 decomposition.py 的切分逻辑和这里的切分逻辑不一致，这里会报错
+            print(f"Error: NPY len ({len(decomp_npy)}) != CSV split len ({type_len[self.set_type]}).")
+            exit(0)
+                
+        if self.features == 'S':
+            decomp_npy = decomp_npy[:, [self.target], :]    # (T, 1, K)
+            raw_data = raw_data[:, [self.target]]           # (T, 1)
+        
+        # 读取原始数据并标准化
+        if self.scale:
+            self.scaler.fit(raw_data[s0:e0])
+            raw_scaled = self.scaler.transform(raw_data)
+        else:
+            raw_scaled = raw_data
+       
+        # 读取分量并合并为3个分量
+        data_processed = merge_components(decomp_npy, self.k) # [T, C, K]
+        print(f">>>>>>>>>>>>> {current_flag_name} {self.use_mnn}: data_processed.shape: {data_processed.shape}")
+        if self.use_mnn and self.set_type == 2:
+            self.__read_mnn_data__(raw_data[s2:e2])
+            
+        start_idx = self.borders['start'][self.set_type]
+        end_idx = self.borders['end'][self.set_type]
+        self.data_decomp = data_processed                  # 存储分解信号 [T, C, K]
+        self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
+        
+    def __read_mnn_data__(self, test_raw_data):
+        k = None if self.args.num_imf == 15 else self.k
+        suffix = "_smoothed"
+        prefix = "all" if k is None else "pred"
+        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
+        # =======================================================
+        data_mnn_test = np.load(data_mnn_test_path)
+        print(f">>>>>>>>>>>>> Loaded MNN test data from {data_mnn_test_path}, shape: {data_mnn_test.shape}")
+        C = test_raw_data.shape[-1]
+        if data_mnn_test.shape[-1] == self.args.num_imf - 1: # Use Residual Data for Test
+            data_mnn_test = data_mnn_test.reshape(-1, C, self.args.num_imf - 1) # (T, C, 2)
+            remain = test_raw_data - data_mnn_test.sum(axis=-1) # (T, C)
+            self.data_mnn_test = np.concatenate([remain.reshape(-1, C, 1), data_mnn_test], axis=-1)
+            print(f">>>>>>>>>>>>> After Residual, data_mnn_test.shape: {data_mnn_test.shape}")
+            
+        elif data_mnn_test.shape[-1] == self.args.num_imf:
+            self.data_mnn_test = data_mnn_test
+        else:
+            raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
+                
+    def __getitem__(self, index):
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+
+        # ====================================================
+        # 1. 构建输入 seq_x: [Seq_Len, C, K+1]
+        # ====================================================
+        # A. 获取分解部分 [Seq_Len, C, K]
+        seq_x_decomp = self.data_decomp[s_begin:s_end, :, :]
+        
+        # B. 获取原始部分 [Seq_Len, C] -> 扩展为 [Seq_Len, C, 1]
+        seq_x_original = self.data_original[s_begin:s_end, :]
+        seq_x_original = seq_x_original[:, :, np.newaxis] 
+
+        # C. 拼接: 原始信号在第0位 [Seq_Len, C, 1+K]
+        if self.use_mnn and self.set_type == 2:
+            seq_x_decomp = self.data_mnn_test[s_begin:s_end, :, :]
+           
+        seq_x = np.concatenate([seq_x_original, seq_x_decomp], axis=-1)
+        
+        # ====================================================
+        # 2. 构建标签 seq_y: [Label_Len + Pred_Len, C, K+1]
+        # ====================================================
+        # A. 获取分解标签
+        seq_y_decomp = self.data_decomp[r_begin:r_end, :, :]
+        
+        # B. 获取原始标签
+        seq_y_original = self.data_original[r_begin:r_end, :]
+        seq_y_original = seq_y_original[:, :, np.newaxis]
+        
+        # C. 拼接
+        seq_y = np.concatenate([seq_y_original, seq_y_decomp], axis=-1)
+        
+        # ====================================================
+        # 3. 时间戳 (不变)
+        # ====================================================
+        seq_x_mark = torch.zeros((seq_x.shape[0], seq_x.shape[1], 1))
+        seq_y_mark = torch.zeros((seq_y.shape[0], seq_y.shape[1], 1))
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        if self.set_type == 2:
+            return (self.data_decomp.shape[1] - self.seq_len - self.pred_len + 1) // 12
+        else:
+            return self.data_decomp.shape[1] - self.seq_len - self.pred_len + 1
+
+    def inverse_transform(self, data):
+        return self.scaler.inverse_transform(data)
+    

@@ -21,7 +21,7 @@ def get_args():
     parser.add_argument('--model_id', type=str, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='Autoformer',
                         help='model name, options: [Autoformer, Transformer, TimesNet]')
-    parser.add_argument('--selected_k', type=int, default=1, help='selected k for IMF decomposition')
+    parser.add_argument('--pivot', type=int, default=1, help='selected k for IMF decomposition')
     parser.add_argument('--use_mnn', type=int, default=0, help='use mnn for inference.')
     parser.add_argument('--mnn', type=str, default='mlp', help='mnn model name, options: [mlp, tcn, wpmixer]')
     parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
