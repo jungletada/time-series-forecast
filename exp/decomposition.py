@@ -32,14 +32,6 @@ def merge_components(raw_signal, data_decomposed, k):
     decomp_data = np.stack([comp1, comp2, comp3], axis=-1)
     return decomp_data
 
-import os
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from joblib import Parallel, delayed
-from tqdm import tqdm
-from PyEMD import EMD  # 假设你使用的是 PyEMD
-
 class LongTermDecomposition:
     def __init__(self, data_type, root_path, data_file, 
                  selected_k=2, max_imfs=15, seq_len=96, scale=True):
@@ -124,8 +116,9 @@ class LongTermDecomposition:
         full_decomp = self._decompose_and_pad(full_series)
         test_decomp_cd = full_decomp[border['start'][2]:border['end'][2]]
         #########################################################
-        # train_decomp = full_decomp[border['start'][0]:border['end'][0]]
-        # val_decomp_cd = full_decomp[border['start'][1]:border['end'][1]]
+        # Attention: Data Leakage
+        train_decomp = full_decomp[border['start'][0]:border['end'][0]]
+        val_decomp_cd = full_decomp[border['start'][1]:border['end'][1]]
         return {'train': train_decomp, 'val': val_decomp_cd, 'test': test_decomp_cd}
 
     def run(self):
@@ -136,7 +129,7 @@ class LongTermDecomposition:
         if cols_to_drop: df = df.drop(columns=cols_to_drop)
         # 确保全是数值
         df = df.select_dtypes(include=[np.number])
-        data_values = df.values
+        data = df.values
 
         # 获取切分点
         total_len = len(df)
@@ -147,17 +140,19 @@ class LongTermDecomposition:
         if self.scale:
             print("  > Executing Standardization (Fit on Train set)...")
             # 获取训练集的结束索引
-            train_start_idx = border['start'][0] # 通常是0，但为了严谨使用 border
-            train_end_idx = border['end'][0]
-            
+            s0 = border['start'][0] # 通常是0，但为了严谨使用 border
+            e0 = border['end'][0]
+            s1 = border['start'][1]
+            e1 = border['end'][1]
+            s2 = border['start'][2]
+            e2 = border['end'][2]
             # 1. 仅在训练集上 fit
-            train_data_for_fit = data_values[train_start_idx:train_end_idx, :]
+            train_data_for_fit = data[s0:e0, :]
             self.scaler.fit(train_data_for_fit)
-            print(f"  > Scaler fitted on range [{train_start_idx}:{train_end_idx}]")
+            print(f"  > Scaler fitted on range [{s0}:{e0}]")
             
-            # 2. 对整个数据集 transform
-            # 这样后续 _process_column 切分出来的 train/val/test 都是归一化过的
-            data_values = self.scaler.transform(data_values)
+            # 2. 对整个数据集 transform，后续 _process_column 切分出来的 train/val/test 都是归一化过的
+            data = self.scaler.transform(data)
             print("  > Whole dataset transformed.")
         else:
             print("  > Skipping scaling (using raw data).")
@@ -167,11 +162,11 @@ class LongTermDecomposition:
               f"  > Test[{border['start'][2]}:{border['end'][2]}]")
         
         # 此时 data_values 已经是处理过的数据，传入 _process_column 直接分解即可
-        print(f"data_values shape: {data_values.shape}")
+        print(f"data_values shape: {data.shape}")
         
         results = Parallel(n_jobs=-1)(
-            delayed(self._process_column)(data_values[:, i], border) 
-            for i in tqdm(range(data_values.shape[1]), desc="Decomposing Cols")
+            delayed(self._process_column)(data[:, i], border) 
+            for i in tqdm(range(data.shape[1]), desc="Decomposing Cols")
         )
         
         # 堆叠
@@ -196,13 +191,28 @@ class LongTermDecomposition:
         val_save_path = f"{base_name}_val{suffix}.npy"
         test_save_path = f"{base_name}_test{suffix}.npy"
 
+        # Assert: Data and decomposed data are equal
+        train_sum = train_tensor.sum(axis=-1) # [T, C]
+        val_sum = val_tensor.sum(axis=-1) # [T, C]
+        test_sum = test_tensor.sum(axis=-1) # [T, C]
+        
+        if np.allclose(data[s0:e0], train_sum) and np.allclose(data[s1:e1], val_sum) and np.allclose(data[s2:e2], test_sum):
+            print("  > Data and decomposed data are equal.")
+        else:
+            print("Warning: Data and decomposed data are not equal, please check the decomposition.")
+            exit(0)
+        
+        np.save(f"{base_name}_scaled.npy", data)
         np.save(train_save_path, train_tensor)
         np.save(val_save_path, val_tensor)
         np.save(test_save_path,  test_tensor)
 
-        print(f"  > Saved Train {train_tensor.shape} to {train_save_path},\n" 
-              f"  > Saved Val {val_tensor.shape} to {val_save_path},\n" 
-              f"  > Saved Test {test_tensor.shape} to {test_save_path}\n")
+        print(
+            f"  > Saved Train {train_tensor.shape} to {train_save_path},\n" 
+            f"  > Saved Val {val_tensor.shape} to {val_save_path},\n" 
+            f"  > Saved Test {test_tensor.shape} to {test_save_path}\n"
+            f"  > Saved Data {data.shape} to {base_name}_scaled.npy\n"
+        )
 
 class ShortTermDecomposition:
     def __init__(self, data_type, root_path, data_file, max_imfs=12, seq_len=96, scale=True):
@@ -255,14 +265,14 @@ class ShortTermDecomposition:
         # 2. Validation Set (Train + Val 的历史信息)
         val_raw = full_series[0:border['end'][1]] # 总是从 0 开始以保持索引对齐
         val_decomp_full = self._decompose_and_pad(val_raw)
-        # 此时 val_decomp_full 的长度为 border['end'][1]
-        # 我们切取出 [border['start'][1] : border['end'][1]]
         val_decomp_cd = val_decomp_full[border['start'][1]:border['end'][1]]
         
         # 3. Test Set (全部历史信息)
         full_decomp = self._decompose_and_pad(full_series)
         test_decomp_cd = full_decomp[border['start'][2]:border['end'][2]]
-        
+        # Attention: Data Leakage
+        # train_decomp = full_decomp[border['start'][0]:border['end'][0]]
+        # val_decomp_cd = full_decomp[border['start'][1]:border['end'][1]]
         return {'train': train_decomp, 'val': val_decomp_cd, 'test': test_decomp_cd}
 
     def run(self):
@@ -331,6 +341,7 @@ class ShortTermDecomposition:
         else:
             print("  > Data and decomposed data are not equal, please check the decomposition.")
             exit(0)
+ 
        
 def decompose_long_term_data(data_root, K_IMFS):
     DATA_LIST = [
@@ -369,6 +380,7 @@ def decompose_long_term_data(data_root, K_IMFS):
                 seq_len=seq_len)
             decomposer.run()
  
+ 
 def decompose_short_term_data(data_root, K_IMFS):
     for data_file in ['PEMS03.npz', 'PEMS04.npz', 'PEMS07.npz', 'PEMS08.npz']:
         decomposer = ShortTermDecomposition(
@@ -376,12 +388,12 @@ def decompose_short_term_data(data_root, K_IMFS):
             root_path=os.path.join(data_root, 'PEMS'),
             data_file=data_file,
             max_imfs=K_IMFS,
-            seq_len=96,
-            scale=True)
+            seq_len=96)
         decomposer.run()
+    
     
 if __name__ == "__main__":
     K_IMFS = 15
     data_root = 'dataset'
-    # decompose_long_term_data(data_root, K_IMFS)
-    decompose_short_term_data(data_root, K_IMFS)
+    decompose_long_term_data(data_root, K_IMFS)
+    # decompose_short_term_data(data_root, K_IMFS)

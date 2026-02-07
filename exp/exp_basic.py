@@ -63,7 +63,11 @@ class Exp_Basic(object):
         if not hasattr(self, 'num_components'):
             self.num_components = None # 用于 Dep 模型时设置，表示分量数量
         self.device = self._acquire_device()
-        self.model = self._build_model().to(self.device)
+        self.model = self._build_model()
+        if self.model is not None:
+            self.model = self.model.to(self.device)
+        else:
+            self.model = None
 
     def _build_model(self):
         raise NotImplementedError

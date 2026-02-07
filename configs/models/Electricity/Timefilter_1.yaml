@@ -1,13 +1,15 @@
+
 "common":
+  model: TimeFilter
   des: test
   loss: MSE
   use_amp: false
   dropout: 0.4
-  d_model: 512
-  d_ff: 512
+  d_model: 96
+  d_ff: 96
   e_layers: 2
   d_layers: 1
-  patch_len: 32
+  patch_len: 2
   use_norm: 0
   top_p: 0.0
   factor: 3
@@ -19,13 +21,49 @@
   lradj: type1
 
 "96":
-  dropout: 0.5
-  d_model: 512
-  d_ff: 512
-  e_layers: 2
-  d_layers: 1
-  patch_len: 32
-  learning_rate: 0.0001
   batch_size: 32
+  d_ff: 128
+  d_layers: 2
+  d_model: 96
+  dropout: 0.4
+  e_layers: 2
+  learning_rate: 0.0025
+  patch_len: 16
+  train_epochs: 10
+  patience: 5
+
+"192":
+  batch_size: 32
+  d_ff: 128
+  d_layers: 2
+  d_model: 96
+  dropout: 0.4
+  e_layers: 2
+  learning_rate: 0.0025
+  patch_len: 16
+  train_epochs: 10
+  patience: 5
+
+"336":
+  batch_size: 32
+  d_ff: 128
+  d_layers: 2
+  d_model: 96
+  dropout: 0.4
+  e_layers: 2
+  learning_rate: 0.0025
+  patch_len: 16
+  train_epochs: 10
+  patience: 5
+
+"720":
+  batch_size: 32
+  d_ff: 128
+  d_layers: 2
+  d_model: 96
+  dropout: 0.4
+  e_layers: 2
+  learning_rate: 0.0025
+  patch_len: 16
   train_epochs: 10
   patience: 5

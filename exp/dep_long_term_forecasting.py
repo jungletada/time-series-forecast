@@ -6,7 +6,7 @@ import json
 import torch
 import torch.nn as nn
 from torch import optim
-import torch.multiprocessing as mp # 确保导入了多进程库
+import torch.multiprocessing as mp
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
@@ -17,53 +17,61 @@ warnings.filterwarnings('ignore')
 
 class Exp_Dep_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args, logger):
-        # 定义分量名称，用于日志打印
         self.logger = logger
         self.logger.info(f'Initializing Exp_Long_Term_Forecast (Training {args.num_imf} Independent Models).')
         self.logger.info(f'Number of components: {args.num_imf}')
         super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
         
+        # [修改点 1]：不再在 init 里构建 self.model 列表
+        # 保持 self.model 为 None 或移除，避免占用显存
+        self.model = None 
+
     def _build_model(self):
-        models = []
-        # 严格依赖 model_args_list
-        for i, model_args in enumerate(self.args.model_args_list):
-            self.logger.info(f'Building model {i} with specific args: {model_args}')
+        # 这个函数在父类 Exp_Basic 中可能会被调用
+        # 但我们现在的策略是按需构建，所以这里返回 None 或者报错，或者留空
+        return None
+
+    def _build_individual_model(self, component_idx):
+        """
+        [新增函数]：只构建指定 index 的这一个模型
+        """
+        model_args = self.args.model_args_list[component_idx]
+        self.logger.info(f'>>> Building INDIVIDUAL model for Component-{component_idx} with args: {model_args}')
+        
+        model = self.model_dict[model_args.model].Model(model_args).float()
+        
+        if self.args.use_multi_gpu and self.args.use_gpu:
+            model = nn.DataParallel(model, device_ids=self.args.device_ids)
+        
+        # 必须手动搬运到 GPU，因为不再由 Exp_Basic 统一管理
+        if self.args.use_gpu:
+            model = model.to(self.device)
             
-            # 使用各自的配置实例化
-            model = self.model_dict[model_args.model].Model(model_args).float()
-            
-            if self.args.use_multi_gpu and self.args.use_gpu:
-                model = nn.DataParallel(model, device_ids=self.args.device_ids)
-            models.append(model)
-            
-        return nn.ModuleList(models)
+        return model
 
     def _get_data(self, flag):
         data_set, data_loader = data_provider(self.args, flag)
-        print(f">>>>>>>>>>>>>>>>>>>>>> length of data_set: {len(data_set)}")
+        # print(f">>>>>>>>>>>>>>>>>>>>>> length of data_set: {len(data_set)}")
         return data_set, data_loader
 
-    def _select_optimizer(self):
-        optimizers = []
-        for i, model_args in enumerate(self.args.model_args_list):
-            model = self.model[i]
-            lr = model_args.learning_rate
-            model_optim = optim.Adam(model.parameters(), lr=lr)
-            optimizers.append(model_optim)
-            
-            self.logger.info(f"Built Optimizer for Component-{i} with lr={lr}")
-            
-        return optimizers
+    def _select_optimizer(self, model, component_idx):
+        """
+        [修改]：只为当前传入的单个模型创建优化器
+        """
+        model_args = self.args.model_args_list[component_idx]
+        lr = model_args.learning_rate
+        model_optim = optim.Adam(model.parameters(), lr=lr)
+        self.logger.info(f"Built Optimizer for Component-{component_idx} with lr={lr}")
+        return model_optim
 
     def _select_criterion(self):
         criterion = nn.MSELoss()
         return criterion
-
+    
     def _train_single_component(self, model, model_args, component_idx, setting, train_loader, vali_loader, test_loader):
         """
-        独立训练单个分量的函数
+        独立训练单个分量的函数 (逻辑基本不变，只是 model 从参数传入)
         """
-        # 1. 准备该分量专属的工具
         path = os.path.join(self.args.checkpoints, setting['save_dir'], f'component_{component_idx}')
         if not os.path.exists(path):
             os.makedirs(path)
@@ -71,23 +79,17 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         time_now = time.time()
         train_steps = len(train_loader)
         
-        # 专属 EarlyStopping
         early_stopping = EarlyStopping(patience=model_args.patience, verbose=True)
         
-        # 专属 Optimizer (使用该分量的 model_args.learning_rate)
-        model_optim = optim.Adam(model.parameters(), lr=model_args.learning_rate)
-        
-        # 专属 Loss
+        # [修改] 使用新的优化器生成函数
+        model_optim = self._select_optimizer(model, component_idx)
         criterion = self._select_criterion()
         
         if self.args.use_amp:
             scaler = torch.amp.GradScaler('cuda')
 
-        self.logger.info(f"Start training Component-{component_idx} | Epochs: {model_args.train_epochs} | LR: {model_args.learning_rate}")
+        self.logger.info(f"Start training Component-{component_idx} | Epochs: {model_args.train_epochs}")
 
-        # =========================
-        # Epoch Loop
-        # =========================
         for epoch in range(model_args.train_epochs):
             iter_count = 0
             train_loss = []
@@ -104,22 +106,16 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
                 
-                # ============================================================
-                # 数据切分: 只取第 k+1 个分量 (跳过原始信号)
-                # ============================================================
                 inp = batch_x[:, :, :, component_idx+1]
                 target = batch_y[:, :, :, component_idx+1]
                 
-                # Decoder Input
                 dec_inp = torch.zeros_like(target[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([target[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 
-                # Forward
                 if self.args.use_amp:
                     with torch.amp.autocast('cuda'):
                         outputs = model(inp, batch_x_mark, dec_inp, batch_y_mark)
                         if isinstance(outputs, tuple): outputs = outputs[0]
-
                         f_dim = -1 if self.args.features == 'MS' else 0
                         outputs = outputs[:, -self.args.pred_len:, f_dim:]
                         target = target[:, -self.args.pred_len:, f_dim:].to(self.device)
@@ -128,14 +124,12 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                 else:
                     outputs = model(inp, batch_x_mark, dec_inp, batch_y_mark)
                     if isinstance(outputs, tuple): outputs = outputs[0]
-
                     f_dim = -1 if self.args.features == 'MS' else 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
                     target = target[:, -self.args.pred_len:, f_dim:].to(self.device)
                     loss = criterion(outputs, target)
                     train_loss.append(loss.item())
 
-                # Backward
                 if self.args.use_amp:
                     scaler.scale(loss).backward()
                     scaler.step(model_optim)
@@ -144,21 +138,14 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     loss.backward()
                     model_optim.step()
 
-            # End of Epoch
             self.logger.info(f"[Comp-{component_idx}] Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
             train_loss = np.average(train_loss)
             
-            # Validation (传入 component_idx 以便 vali 函数知道切分哪个数据)
             vali_loss = self._vali_single_component(model, vali_loader, criterion, component_idx)
             test_loss = self._vali_single_component(model, test_loader, criterion, component_idx) 
 
-            self.logger.info(f"[Comp-{component_idx}] Epoch: {epoch + 1}, "
-                             f"Steps: {train_steps} | "
-                             f"Train Loss: {train_loss:.7f}, "
-                             f"Vali Loss: {vali_loss:.7f}, "
-                             f"Test Loss: {test_loss:.7f}")
+            self.logger.info(f"[Comp-{component_idx}] Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, Vali Loss: {vali_loss:.7f}, Test Loss: {test_loss:.7f}")
             
-            # Early Stopping
             early_stopping(vali_loss, model, path)
             if early_stopping.early_stop:
                 self.logger.info(f"[Comp-{component_idx}] Early stopping at epoch {epoch + 1}")
@@ -166,15 +153,12 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
             
             adjust_learning_rate(model_optim, epoch + 1, model_args)
 
-        # 加载该分量的最优模型
+        # 加载最优模型
         best_model_path = os.path.join(path, 'checkpoint.pth')
         model.load_state_dict(torch.load(best_model_path))
         return model
 
     def _vali_single_component(self, model, loader, criterion, component_idx):
-        """
-        辅助函数：只验证单个分量
-        """
         model.eval()
         total_loss = []
         with torch.no_grad():
@@ -197,169 +181,116 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     outputs = model(inp, batch_x_mark, dec_inp, batch_y_mark)
                 
                 if isinstance(outputs, tuple): outputs = outputs[0]
-                
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 target = target[:, -self.args.pred_len:, f_dim:].to(self.device)
-                
                 loss = criterion(outputs, target)
                 total_loss.append(loss.item())
         
         model.train()
         return np.average(total_loss)
     
-    # ============================================================
-    # 核心修改：train 函数支持指定 component
-    # ============================================================
     def train(self, setting):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
         
-        use_parallel = getattr(self.args, 'use_parallel', False) 
-        
-        # ----------------------------------------------------
-        # [新增] 确定要训练的分量列表
-        # ----------------------------------------------------
+        # 确定要训练的分量列表
         if self.args.train_component is not None:
-            # 确保输入合法
             if 0 <= self.args.train_component < self.args.num_imf:
                 target_components = [self.args.train_component]
                 self.logger.info(f">>> ONLY Training Component-{self.args.train_component} <<<")
             else:
-                raise ValueError(f"train_component {self.args.train_component} is out of range [0, {self.args.num_imf-1}]")
+                raise ValueError(f"train_component {self.args.train_component} is out of range")
         else:
-            # 默认训练所有分量
             target_components = range(self.args.num_imf)
             self.logger.info(f">>> Training ALL Components: {list(target_components)} <<<")
-        # ----------------------------------------------------
 
-        if use_parallel:
-            self.logger.info(">>> Starting Parallel Training <<<")
+        # 注意：为了解决显存问题，我们暂时只支持串行训练
+        # 如果使用 parallel，所有进程同时启动，显存依然会爆
+        # 下面是串行逻辑：
+        
+        self.logger.info(">>>>> Starting Sequential Training (Memory Optimized) <<<")
+        for k in target_components: 
+            self.logger.info(f"--- Training Component {k} ---")
+            model_args = self.args.model_args_list[k]
             
-            # 只有当需要训练多个分量时，多进程才有意义；如果是单分量，直接串行即可
-            if len(target_components) > 1:
-                try:
-                    mp.set_start_method('spawn', force=True)
-                except RuntimeError:
-                    pass
+            # [关键步骤 1] 实例化单个模型
+            current_model = self._build_individual_model(k)
+            
+            # [关键步骤 2] 训练
+            trained_model = self._train_single_component(
+                current_model, 
+                model_args, 
+                k, 
+                setting,
+                train_loader, 
+                vali_loader, 
+                test_loader
+            )
+            
+            # [关键步骤 3] 训练完立刻释放资源
+            self.logger.info(f"--- Finished Component {k}. Releasing memory... ---")
+            del current_model
+            del trained_model
+            torch.cuda.empty_cache() # 强制释放显存
+            
+        return None # 不再返回 self.model 列表，因为已经被销毁了
 
-                processes = []
-                for k in target_components: # 遍历目标列表
-                    model = self.model[k]
-                    model_args = self.args.model_args_list[k]
-                    
-                    p = mp.Process(target=self._train_wrapper, args=(
-                        k, model, model_args, setting, 
-                        train_loader, vali_loader, test_loader
-                    ))
-                    p.start()
-                    processes.append(p)
-                
-                for p in processes:
-                    p.join()
-                
-                self.logger.info(">>> Parallel Training Finished. Reloading models... <<<")
-                for k in target_components:
-                    path = os.path.join(self.args.checkpoints, setting['save_dir'], f'component_{k}', 'checkpoint.pth')
-                    if os.path.exists(path):
-                        self.model[k].load_state_dict(torch.load(path))
-            else:
-                # 虽然开了 parallel 但只训练一个分量，直接退化为串行
-                k = target_components[0]
-                self._train_single_component_wrapper(k, setting, train_loader, vali_loader, test_loader)
-                
-        else:
-            self.logger.info(">>>>> Starting Sequential Training <<<")
-            for k in target_components: # 遍历目标列表
-                self._train_single_component_wrapper(k, setting, train_loader, vali_loader, test_loader)
-
-        return self.model
-
-    def _train_single_component_wrapper(self, k, setting, train_loader, vali_loader, test_loader):
-        """辅助函数，用于串行训练时的调用"""
-        model_args = self.args.model_args_list[k]
-        self.logger.info(f"--- Training Component {k} ---")
-        
-        trained_model = self._train_single_component(
-            self.model[k], 
-            model_args, 
-            k, 
-            setting,
-            train_loader, 
-            vali_loader, 
-            test_loader
-        )
-        self.model[k] = trained_model
-        
-    # 多进程所需的 Wrapper (因为类方法直接传给 Process 容易 pickling error)
-    def _train_wrapper(self, k, model, model_args, setting, train_loader, vali_loader, test_loader):
-        # 重新设置一下 device，因为在子进程中
-        device = torch.device(f"cuda:{self.args.gpu}" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
-        self.device = device # 更新子进程中的 self.device
-        
-        self._train_single_component(model, model_args, k, setting, train_loader, vali_loader, test_loader)
-        
     def test(self, setting, test=0):
-        # [未修改] test 函数不需要改动，它会自动检测 checkpoint 是否存在
-        # 如果你只训练了 component-0，test 时会加载 comp-0，如果 comp-1 没训练，
-        # 它会打印 warning 并跳过加载（使用随机初始化的参数），或者你可以根据需要修改 test 逻辑
         test_data, test_loader = self._get_data(flag='test')
         base_path = os.path.join(self.args.checkpoints, setting['save_dir'])
-
-        self.logger.info('>>> Loading checkpoints for independent testing... <<<')
-        for k in range(self.args.num_imf):
-            comp_ckpt_path = os.path.join(base_path, f'component_{k}', 'checkpoint.pth')
-            if os.path.exists(comp_ckpt_path):
-                self.model[k].load_state_dict(torch.load(comp_ckpt_path))
-                self.logger.info(f"Loaded Component-{k} from {comp_ckpt_path}")
-            else:
-                self.logger.warning(f"Checkpoint for Component-{k} not found at {comp_ckpt_path}! Using random init.")
-
-        # 1. 初始化容器
-        # 用于存储最终总和 (Original Scale)
-        preds_total = []
-        trues_total = []
-        
-        # [新增] 用于存储每个分量 (Normalized Scale)
-        # 结构: [Comp0_List, Comp1_List, Comp2_List]
-        preds_comps = [[] for _ in range(self.args.num_imf)]
-        trues_comps = [[] for _ in range(self.args.num_imf)]
-        
         result_path = os.path.join(self.args.results, setting['save_dir'])
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
-        for model in self.model:
+        # ----------------------------------------------------
+        # 内存优化版测试逻辑
+        # ----------------------------------------------------
+        # 我们不能同时加载所有模型。
+        # 策略：依次加载模型 -> 预测全量测试集 -> 存入CPU列表 -> 释放显存 -> 加载下一个
+        
+        # 存储所有分量的预测结果 (在 CPU 上)
+        # preds_comps_all: List[Array(N, Pred_Len, C)]
+        preds_comps_all = []
+        trues_comps_all = []
+        
+        # 加载所有需要的 Component (或者只测试训练的那一个，取决于 args.train_component)
+        # 这里假设测试阶段我们需要所有分量来合成最终结果
+        
+        self.logger.info('>>> Starting Memory-Optimized Testing... <<<')
+        
+        for k in range(self.args.num_imf):
+            self.logger.info(f">>> Testing Component-{k} <<<")
+            
+            # 1. 检查 Checkpoint
+            comp_ckpt_path = os.path.join(base_path, f'component_{k}', 'checkpoint.pth')
+            if not os.path.exists(comp_ckpt_path):
+                self.logger.warning(f"Checkpoint for Component-{k} not found! Skipping logic requires attention.")
+                # 这里如果缺失模型，可能需要用全0填充，或者报错
+                # 简单起见，这里假设必然存在，或者用随机初始化模型（但不 load 权重）
+            
+            # 2. 构建并加载模型
+            model = self._build_individual_model(k)
+            if os.path.exists(comp_ckpt_path):
+                model.load_state_dict(torch.load(comp_ckpt_path))
+                self.logger.info(f"Loaded weights for Component-{k}")
             model.eval()
             
-        inference_time = 0
-        
-        with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
-                batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float().to(self.device)
-                batch_x_mark = batch_x_mark.float().to(self.device)
-                batch_y_mark = batch_y_mark.float().to(self.device)
+            # 3. 预测当前分量的全量测试集
+            preds_k = []
+            trues_k = []
+            
+            with torch.no_grad():
+                for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+                    batch_x = batch_x.float().to(self.device)
+                    batch_y = batch_y.float().to(self.device)
+                    batch_x_mark = batch_x_mark.float().to(self.device)
+                    batch_y_mark = batch_y_mark.float().to(self.device)
 
-                # 初始化当前 Batch 的累加预测结果
-                batch_pred_sum = 0
-                
-                start_time = time.time()
-
-                # ============================================================
-                # [核心逻辑] 遍历 K 个模型
-                # ============================================================
-                for k in range(self.args.num_imf):
-                    model = self.model[k]
-                    
-                    # Input: component_k
                     inp = batch_x[:, :, :, k+1]
-                    # Target: component_k (用于计算分量 Metrics)
                     target_k = batch_y[:, :, :, k+1]
 
-                    # Decoder Input
                     dec_inp = torch.zeros_like(target_k[:, -self.args.pred_len:, :]).float()
                     dec_inp = torch.cat([target_k[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
@@ -372,79 +303,83 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     if isinstance(outputs, tuple): outputs = outputs[0]
 
                     f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = outputs[:, -self.args.pred_len:, f_dim:] # [B, L, C]
+                    outputs = outputs[:, -self.args.pred_len:, f_dim:]
                     
-                    # ---------------------------------------------------
-                    # [新增] 收集分量级结果 (保持在 GPU/Numpy 转换前)
-                    # ---------------------------------------------------
-                    # 注意：这里我们收集的是 Normalized 的数据，因为 scaler 不能用于分量
-                    p_comp = outputs.detach().cpu().numpy()
-                    t_comp = target_k[:, -self.args.pred_len:, f_dim:].detach().cpu().numpy()
-                    
-                    preds_comps[k].append(p_comp)
-                    trues_comps[k].append(t_comp)
-                    # ---------------------------------------------------
-
-                    # 累加到总结果
-                    batch_pred_sum += outputs
-
-                inference_time += time.time() - start_time
-
-                # ============================================================
-                # [后处理] 总和结果 (Total Sum)
-                # ============================================================
-                batch_y_original = batch_y[:, :, :, 0]
-                batch_y_original = batch_y_original[:, -self.args.pred_len:, f_dim:].to(self.device)
-
-                pred = batch_pred_sum.detach().cpu().numpy()
-                true = batch_y_original.detach().cpu().numpy()
-
-                # 反归一化 (仅针对总和结果)
-                if test_data.scale and self.args.inverse:
-                    shape = pred.shape
-                    pred = test_data.inverse_transform(pred.reshape(-1, shape[-1])).reshape(shape)
-                    true = test_data.inverse_transform(true.reshape(-1, shape[-1])).reshape(shape)
-
-                preds_total.append(pred)
-                trues_total.append(true)
+                    # 收集结果 (立即转 CPU)
+                    preds_k.append(outputs.detach().cpu().numpy())
+                    trues_k.append(target_k[:, -self.args.pred_len:, f_dim:].detach().cpu().numpy())
+            
+            # 4. 释放显存
+            del model
+            torch.cuda.empty_cache()
+            
+            # 整理当前分量结果
+            preds_k = np.concatenate(preds_k, axis=0) # [N, Pred, C]
+            trues_k = np.concatenate(trues_k, axis=0)
+            
+            preds_comps_all.append(preds_k)
+            trues_comps_all.append(trues_k)
+            
+            self.logger.info(f"Component-{k} Inference Done. Memory Released.")
 
         # ============================================================
-        # 1. 报告总和结果 (Original Scale)
+        # 结果汇总与评估
         # ============================================================
-        preds_total = np.concatenate(preds_total, axis=0)
-        trues_total = np.concatenate(trues_total, axis=0)
         
-        self.logger.info(f'Total Test Shape: {preds_total.shape}')
-        avg_latency = (inference_time / (i + 1)) * 1000
-        self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
-
-        mae, mse, rmse, mape, mspe = metric(preds_total, trues_total)
-        
-
-        # ============================================================
-        # 2. [新增] 报告每个分量的结果 (Normalized Scale)
-        # ============================================================
+        # 1. 计算每个分量的 Metrics
         self.logger.info(f'>>>> COMPONENT Metrics (Normalized Scale) <<<<')
         comp_metrics = []
-        
         for k in range(self.args.num_imf):
-            # 拼接该分量的所有 batch
-            p_k = np.concatenate(preds_comps[k], axis=0)
-            t_k = np.concatenate(trues_comps[k], axis=0)
+            p_k = preds_comps_all[k]
+            t_k = trues_comps_all[k]
             mae_k, mse_k, rmse_k, _, _ = metric(p_k, t_k)
             self.logger.info(f'Component-{k}: mse:{mse_k:.5f}, mae:{mae_k:.5f}')
             comp_metrics.append([mse_k, mae_k])
-            
+
+        # 2. 计算总和 (Total Sum)
+        # 将 list of arrays stack 起来 -> [K, N, Pred, C] -> sum axis 0 -> [N, Pred, C]
+        preds_sum = np.sum(np.stack(preds_comps_all), axis=0)
+        
+        # 真值部分：需要从原始数据中获取 total target
+        # 为了方便，我们可以直接再次遍历一次 loader 拿原始 target (虽然稍微慢点，但逻辑简单)
+        # 或者使用 decomposition 的性质：Sum(trues_comps_all) ≈ Original (取决于分解是否有残差损失)
+        # 更严谨的做法是重新读一次 dataset 的 original target。
+        
+        # 这里为了保持和你之前代码一致的逻辑，我们重新遍历一次 loader 只取原始 target
+        self.logger.info(">>> Retrieving Original Ground Truth... <<<")
+        trues_original = []
+        with torch.no_grad():
+             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+                f_dim = -1 if self.args.features == 'MS' else 0
+                batch_y = batch_y.float().to(self.device)
+                
+                # 取原始数据 (index 0)
+                orig = batch_y[:, :, :, 0]
+                orig = orig[:, -self.args.pred_len:, f_dim:]
+                trues_original.append(orig.detach().cpu().numpy())
+                
+        trues_total = np.concatenate(trues_original, axis=0)
+        
+        # 3. 反归一化
+        if test_data.scale and self.args.inverse:
+            shape = preds_sum.shape
+            preds_total = test_data.inverse_transform(preds_sum.reshape(-1, shape[-1])).reshape(shape)
+            trues_total = test_data.inverse_transform(trues_total.reshape(-1, shape[-1])).reshape(shape)
+        else:
+            preds_total = preds_sum
+            # trues_total 已经是原始值了？取决于 dataset 实现。通常 inverse_transform 是必要的。
+
+        self.logger.info(f'Total Test Shape: {preds_total.shape}')
+        mae, mse, rmse, mape, mspe = metric(preds_total, trues_total)
         self.logger.info(f'>>>> TOTAL SUM Metrics (Original Scale) <<<<')
         self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}'.format(mse, mae, rmse))
-        # ============================================================
+
         # 保存
-        # ============================================================
         np.save(os.path.join(result_path, 'metrics.npy'), np.array([mae, mse, rmse, mape, mspe]))
         np.save(os.path.join(result_path, 'pred.npy'), preds_total)
         np.save(os.path.join(result_path, 'true.npy'), trues_total)
-        
-        # 可选：保存分量的 Metrics
         np.save(os.path.join(result_path, 'metrics_components.npy'), np.array(comp_metrics))
         self.logger.info(f">>>>>>>>>>>>>>>>>>>>>> saved metrics to {result_path}\n\n")
+        
         return
+    
