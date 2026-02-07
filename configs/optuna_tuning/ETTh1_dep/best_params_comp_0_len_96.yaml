@@ -1,0 +1,8 @@
+'96':
+  batch_size: 32
+  d_layers: 1
+  d_model: 96
+  dropout: 0.6268549745690378
+  e_layers: 1
+  learning_rate: 0.0008599427238524183
+  patch_len: 8

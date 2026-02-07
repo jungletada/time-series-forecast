@@ -32,13 +32,13 @@
   patience: 5
 
 "192":
-  batch_size: 16
-  d_ff: 64
-  d_layers: 1
-  d_model: 96
-  dropout: 0.7413887721356673
-  e_layers: 3
-  learning_rate: 0.0009539842181971406
+  batch_size: 24
+  d_ff: 32
+  d_layers: 3
+  d_model: 64
+  dropout: 0.8143453887313963
+  e_layers: 2
+  learning_rate: 0.000185614194212714
   patch_len: 4
   train_epochs: 10
   patience: 5

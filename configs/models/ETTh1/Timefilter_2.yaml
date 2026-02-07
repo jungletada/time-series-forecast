@@ -21,16 +21,14 @@
   lradj: type1
 
 "96":
-  batch_size: 24
+  batch_size: 32
   d_ff: 64
   d_layers: 2
-  d_model: 32
-  dropout: 0.6146400031849316
+  d_model: 128
+  dropout: 0.5506872607498472
   e_layers: 3
-  learning_rate: 5.958120106288615e-05
-  patch_len: 16
-  train_epochs: 10
-  patience: 10
+  learning_rate: 6.232145354454002e-05
+  patch_len: 2
 
 "192":
   batch_size: 24
