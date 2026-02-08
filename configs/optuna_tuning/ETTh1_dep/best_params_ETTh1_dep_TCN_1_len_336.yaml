@@ -1,0 +1,8 @@
+'336':
+  batch_size: 48
+  d_layers: 1
+  d_model: 128
+  dropout: 0.3292575090224956
+  e_layers: 2
+  kernel_size: 7
+  learning_rate: 0.000424266568997882

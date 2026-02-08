@@ -1,9 +1,9 @@
 '192':
   batch_size: 48
-  d_ff: 64
-  d_layers: 1
-  d_model: 64
-  dropout: 0.6808488052757625
+  d_ff: 128
+  d_layers: 2
+  d_model: 32
+  dropout: 0.6650756259707604
   e_layers: 2
-  learning_rate: 0.0006772269796257836
-  patch_len: 16
+  learning_rate: 0.00020193699312892063
+  patch_len: 2

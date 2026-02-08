@@ -1,9 +1,0 @@
-long_term_forecast_ETTh1_96_336_TCN_ETTh1_dep_seq96_pred336_ft(M)_#0  
-mse:0.49650, mae:0.47111, rmse:0.70463, mape:11.37573, mspe:49066.91797
-
-long_term_forecast_ETTh1_96_336_TCN_ETTh1_dep_seq96_pred336_ft(M)_#0  
-mse:0.50188, mae:0.47104, rmse:0.70843, mape:12.49929, mspe:59597.64062
-
-long_term_forecast_ETTh1_96_336_TCN_ETTh1_dep_seq96_pred336_ft(M)_#0  
-mse:0.49786, mae:0.46819, rmse:0.70559, mape:10.98967, mspe:44980.47266
-

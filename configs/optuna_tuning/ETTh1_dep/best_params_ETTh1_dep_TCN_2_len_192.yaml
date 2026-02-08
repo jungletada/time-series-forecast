@@ -1,0 +1,8 @@
+'192':
+  batch_size: 32
+  d_layers: 1
+  d_model: 32
+  dropout: 0.5232667926852295
+  e_layers: 1
+  kernel_size: 5
+  learning_rate: 0.0009926837794306813

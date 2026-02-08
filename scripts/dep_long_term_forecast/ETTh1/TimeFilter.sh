@@ -8,24 +8,7 @@ model_configs=(
 pred_lens=(96 192 336 720)
 best_pivot=(4 4 4 4)
 
-python -u run_dep.py \
-    --is_training 1 \
-    --task_name long_term_forecast \
-    --model $model_name \
-    --model_configs ${model_configs[@]} \
-    --data_name $dataset \
-    --features M \
-    --seq_len 96 \
-    
-    --label_len 48 \
-    --pred_len 192 \
-    --pivot 4 \
-    --des 'Exp' \
-    --itr 1
-
-# pivot=4    # 选择的分解主元
-# for i in 2 1 0; do
-# python -u tune.py \
+# python -u run_dep.py \
 #     --is_training 1 \
 #     --task_name long_term_forecast \
 #     --model $model_name \
@@ -35,8 +18,23 @@ python -u run_dep.py \
 #     --seq_len 96 \
 #     --label_len 48 \
 #     --pred_len 192 \
-#     --pivot ${pivot} \
-#     --train_component ${i} \
-#     --des 'Tuning_Exp' \
-#     --itr 1 
-# done
+#     --pivot 4 \
+#     --des 'Exp' \
+#     --itr 1
+
+for i in 2 1 0; do
+python -u tune.py \
+    --is_training 1 \
+    --task_name long_term_forecast \
+    --model $model_name \
+    --model_configs ${model_configs[@]} \
+    --data_name $dataset \
+    --features M \
+    --seq_len 96 \
+    --label_len 48 \
+    --pred_len 192 \
+    --pivot 4 \
+    --train_component ${i} \
+    --des 'Tuning_Exp' \
+    --itr 1 
+done

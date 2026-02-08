@@ -1,7 +1,59 @@
-# predict_len=[720]
-d_model: 36
-e_layers: 4
-dropout: 0.3
-lradj: type1
-learning_rate: 0.004
-kernel_size: 6
+"common":
+  model: TCN
+  des: test
+  loss: MSE
+  use_amp: false
+  dropout: 0.3
+  d_model: 48
+  e_layers: 4
+  d_layers: 1
+  patch_len: 2
+  use_norm: 0
+  top_p: 0.0
+  factor: 3
+  pos: 0
+  kernel_size: 6
+  learning_rate: 0.004
+  batch_size: 32
+  train_epochs: 10
+  patience: 10
+  lradj: type1
+
+"96":
+  batch_size: 16
+  e_layers: 4
+  d_model: 72
+  dropout: 0.3
+  learning_rate: 0.001
+  patch_len: 16
+  patience: 10
+  train_epochs: 10
+
+"192":
+  batch_size: 32
+  d_layers: 1
+  d_model: 32
+  dropout: 0.5232667926852295
+  e_layers: 1
+  kernel_size: 5
+  learning_rate: 0.0009926837794306813
+
+"336":
+  batch_size: 16
+  e_layers: 4
+  d_model: 72
+  dropout: 0.3
+  learning_rate: 0.001
+  patch_len: 16
+  patience: 10
+  train_epochs: 10
+
+"720":
+  batch_size: 16
+  e_layers: 4
+  d_model: 72
+  dropout: 0.3
+  learning_rate: 0.001
+  patch_len: 16
+  patience: 10
+  train_epochs: 10
