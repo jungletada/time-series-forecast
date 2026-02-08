@@ -6,7 +6,6 @@ pred_lens=(12 24 48)
 for i in "${!pred_lens[@]}"; do
     python -u run.py \
     --task_name long_term_forecast \
-    --seed 5566 \
     --is_training 1 \
     --data_name PEMS03 \
     --model $model_name \
@@ -29,7 +28,6 @@ done
 # for i in "${!pred_lens[@]}"; do
 #     python -u run.py \
 #     --task_name long_term_forecast \
-#     --seed 5566 \
 #     --is_training 0 \
 #     --data_name PEMS04 \
 #     --model $model_name \
@@ -55,7 +53,6 @@ done
 # for i in "${!pred_lens[@]}"; do
 #     python -u run.py \
 #     --task_name long_term_forecast \
-#     --seed 5566 \
 #     --is_training 0 \
 #     --data_name PEMS07 \
 #     --model_id $model_name \
@@ -80,7 +77,6 @@ done
 # for i in "${!pred_lens[@]}"; do
 #     python -u run.py \
 #     --task_name long_term_forecast \
-#     --seed 5566 \
 #     --is_training 1 \
 #     --data_name PEMS08 \
 #     --model_id PEMS08_96_${pred_lens[$i]} \
