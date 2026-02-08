@@ -1,27 +1,26 @@
-# ----- model define -----
 # predict_len=[720]
 n_heads: 8
-dropout: 0.3
+dropout: 0.1
+d_model: 64
 e_layers: 4
 d_layers: 1
-factor: 3
-d_model: 64
-d_ff: 256
-alpha: 0.1
-patch_len: 4
+d_ff: 128
+alpha: 0.2
+patch_len: 2
 use_norm: 0
-top_p: 0.0
+top_p: 0.2
+factor: 3
 pos: 0
-learning_rate: 0.00001
+learning_rate: 0.00009
 lradj: cosine
 
-# # predict_len=[336]
-# dropout: 0.8
-# d_model: 128
+# predict_len=[336]
+# dropout: 0.5
+# d_model: 512
 # e_layers: 2
 # d_layers: 1
 # d_ff: 1024
-# patch_len: 2
+# patch_len: 32
 # use_norm: 0
 # top_p: 0.0
 # factor: 3
@@ -43,32 +42,22 @@ lradj: cosine
 # learning_rate: 0.0001
 # lradj: cosine
 
-# predict_len=[96]
-dropout: 0.8
-d_model: 256
-e_layers: 2
-d_layers: 1
-d_ff: 1024
-patch_len: 2
-use_norm: 0
-top_p: 0.0
-factor: 3
-pos: 0
-learning_rate: 0.001
-lradj: cosine
+# # predict_len=[96]
+# dropout: 0.8
+# d_model: 256
+# e_layers: 2
+# d_layers: 1
+# d_ff: 1024
+# patch_len: 2
+# use_norm: 0
+# top_p: 0.0
+# factor: 3
+# pos: 0
+# learning_rate: 0.001
+# lradj: cosine
 
 # optimization
 des: test
 loss: MSE
-use_amp: false        # 对应 action='store_true'
-
-# GCN
-node_dim: 10
-gcn_depth: 2
-gcn_dropout: 0.3
-propalpha: 0.3
-conv_channel: 32
-skip_channel: 32
-individual: false      # 对应 action='store_true'
-
+use_amp: false
 
