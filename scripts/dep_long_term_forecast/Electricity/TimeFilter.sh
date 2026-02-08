@@ -13,22 +13,6 @@ model_configs=(
     configs/models/Electricity/Timefilter_1.yaml 
     configs/models/Electricity/Timefilter_2.yaml)
 
-# for i in 2 1 0; do
-#     python -u tune.py \
-#     --task_name long_term_forecast \
-#     --model_configs ${model_configs[@]} \
-#     --model $model_name \
-#     --data_name $dataset \
-#     --features M \
-#     --seq_len 96 \
-#     --label_len 48 \
-#     --pred_len 96 \
-#     --selected_k ${selected_k} \
-#     --train_component ${i} \
-#     --des 'Tuning_Exp' \
-#     --itr 1 
-# done
-
 pivot=4
 for i in "${!pred_lens[@]}"; do
     python -u run_dep.py \

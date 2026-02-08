@@ -8,7 +8,7 @@ model_configs=(
     configs/models/PEMS03/Timefilter_2.yaml)
 
 pivot=4
-pred_lens=(24 48)
+pred_lens=(12 24 48)
 for i in "${!pred_lens[@]}"; do
     python -u run_dep.py \
     --task_name long_term_forecast \
