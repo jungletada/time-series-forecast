@@ -3,18 +3,12 @@
   des: test
   loss: MSE
   use_amp: false
-  dropout: 0.3
-  d_model: 48
-  e_layers: 4
-  d_layers: 1
-  patch_len: 2
-  use_norm: 0
-  top_p: 0.0
-  factor: 3
-  pos: 0
-  kernel_size: 6
-  learning_rate: 0.004
-  batch_size: 32
+  dropout: 0.3  # range: [0.1, 0.9]
+  d_model: 48 # [32, 64, 96, 128]
+  e_layers: 4 # [1, 2, 3, 4, 5]
+  kernel_size: 3 # [3, 5, 7, 9, 11]
+  learning_rate: 0.004 # range: [5e-5, 1e-3]
+  batch_size: 32 # 一般取2，4，8的倍数
   train_epochs: 10
   patience: 10
   lradj: type1
@@ -25,16 +19,13 @@
   d_model: 48
   dropout: 0.3
   learning_rate: 0.001
-  patch_len: 16
-  patience: 10
-  train_epochs: 10
+  kernel_size: 3
 
 "192":
   batch_size: 32
   d_layers: 2
   d_model: 96
   dropout: 0.6249664909676028
-  e_layers: 1
   kernel_size: 3
   learning_rate: 0.000808330518804057
 
@@ -49,10 +40,9 @@
 
 "720":
   batch_size: 16
-  e_layers: 4
-  d_model: 48
-  dropout: 0.3
-  learning_rate: 0.001
-  patch_len: 16
-  patience: 10
-  train_epochs: 10
+  d_layers: 2
+  d_model: 32
+  dropout: 0.5656949759590233
+  e_layers: 3
+  kernel_size: 5
+  learning_rate: 0.0009426369671262148

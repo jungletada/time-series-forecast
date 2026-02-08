@@ -8,37 +8,18 @@ model_configs=(
     configs/models/ETTh1/TCN_2.yaml)
 
 pivot=4
-# python -u run_dep.py \
-#     --task_name long_term_forecast \
-#     --is_training 1 \
-#     --data_name $dataset \
-#     --model_configs ${model_configs[@]} \
-#     --model_id $model_id \
-#     --pivot $pivot \
-#     --features S \
-#     --target OT \
-#     --model $model_name \
-#     --seq_len 96 \
-#     --label_len 0 \
-#     --pred_len 336 \
-#     --des 'Exp' \
-#     --itr 1 
-
-
-
-for i in 2 1 0; do
-python -u tune_tcn.py \
-    --is_training 1 \
+python -u run_dep.py \
     --task_name long_term_forecast \
-    --model $model_name \
-    --model_configs ${model_configs[@]} \
+    --is_training 1 \
     --data_name $dataset \
+    --model_configs ${model_configs[@]} \
+    --model_id $model_id \
+    --pivot $pivot \
     --features S \
     --target OT \
+    --model $model_name \
     --seq_len 96 \
+    --label_len 0 \
     --pred_len 720 \
-    --pivot $pivot \
-    --train_component ${i} \
-    --des 'Tuning_Exp' \
+    --des 'Exp' \
     --itr 1 
-done

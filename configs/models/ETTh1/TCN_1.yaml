@@ -22,12 +22,10 @@
 "96":
   batch_size: 16
   e_layers: 4
-  d_model: 64
+  d_model: 48
   dropout: 0.3
   learning_rate: 0.001
-  patch_len: 16
-  patience: 10
-  train_epochs: 10
+  kernel_size: 3
 
 "192":
   batch_size: 16
@@ -48,11 +46,10 @@
   learning_rate: 0.000424266568997882
 
 "720":
-  batch_size: 16
-  e_layers: 4
-  d_model: 64
-  dropout: 0.3
-  learning_rate: 0.001
-  patch_len: 16
-  patience: 10
-  train_epochs: 10
+  batch_size: 24
+  d_layers: 2
+  d_model: 128
+  dropout: 0.43106695567762904
+  e_layers: 1
+  kernel_size: 5
+  learning_rate: 0.0008700730883000076

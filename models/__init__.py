@@ -6,7 +6,6 @@ from . import Koopa, TiDE, FreTS, TimeMixer, TSMixer, SegRNN, TCN
 from . import TemporalFusionTransformer, SCINet, PAttn, TimeXer
 from . import WPMixer, MultiPatchFormer, KANAD, MSGNet, TimeFilter
 from . import TEFN, RNN
-from . import TimeFilter_NDA, TCN_NDA
 
 # Optional models - gracefully skip if dependencies are missing
 try:
@@ -58,5 +57,5 @@ __all__ = [
     'MambaSimple', 'TemporalFusionTransformer', 'SCINet', 'PAttn', 'TimeXer',
     'WPMixer', 'MultiPatchFormer', 'KANAD', 'MSGNet', 'TimeFilter', 'TCN',
     'Sundial', 'TimeMoE', 'Chronos', 'Moirai', 'TiRex', 'TimesFM', 'Chronos2', 
-    'TEFN', 'RNN', 'TimeFilter_NDA', 'TCN_NDA'
+    'TEFN', 'RNN',
 ]

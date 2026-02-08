@@ -6,24 +6,8 @@ model_configs=(
     configs/models/ETTh1/Timefilter_2.yaml)
     
 pred_lens=(96 192 336 720)
-best_pivot=(4 4 4 4)
 
-# python -u run_dep.py \
-#     --is_training 1 \
-#     --task_name long_term_forecast \
-#     --model $model_name \
-#     --model_configs ${model_configs[@]} \
-#     --data_name $dataset \
-#     --features M \
-#     --seq_len 96 \
-#     --label_len 48 \
-#     --pred_len 192 \
-#     --pivot 4 \
-#     --des 'Exp' \
-#     --itr 1
-
-for i in 2 1 0; do
-python -u tune.py \
+python -u run_dep.py \
     --is_training 1 \
     --task_name long_term_forecast \
     --model $model_name \
@@ -32,9 +16,7 @@ python -u tune.py \
     --features M \
     --seq_len 96 \
     --label_len 48 \
-    --pred_len 192 \
-    --pivot 4 \
-    --train_component ${i} \
-    --des 'Tuning_Exp' \
-    --itr 1 
-done
+    --pred_len 96 \
+    --pivot 3 \
+    --des 'Exp' \
+    --itr 1

@@ -39,8 +39,7 @@
   e_layers: 3
   learning_rate: 5.958120106288615e-05
   patch_len: 16
-  train_epochs: 10
-  patience: 10
+
 
 "336":
   batch_size: 24
@@ -51,8 +50,7 @@
   e_layers: 3
   learning_rate: 5.958120106288615e-05
   patch_len: 16
-  train_epochs: 10
-  patience: 10
+
 
 "720":
   batch_size: 16
@@ -63,5 +61,3 @@
   e_layers: 3
   learning_rate: 0.0009539842181971406
   patch_len: 4
-  train_epochs: 10
-  patience: 5

@@ -1,0 +1,8 @@
+'720':
+  batch_size: 24
+  d_layers: 2
+  d_model: 128
+  dropout: 0.43106695567762904
+  e_layers: 1
+  kernel_size: 5
+  learning_rate: 0.0008700730883000076
