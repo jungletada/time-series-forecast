@@ -39,14 +39,13 @@
   learning_rate: 0.000698043275906394
 
 "336":
-  batch_size: 16
-  e_layers: 4
-  d_model: 64
-  dropout: 0.3
-  learning_rate: 0.001
-  patch_len: 16
-  patience: 10
-  train_epochs: 10
+  batch_size: 48
+  d_layers: 1
+  d_model: 128
+  dropout: 0.3292575090224956
+  e_layers: 2
+  kernel_size: 7
+  learning_rate: 0.000424266568997882
 
 "720":
   batch_size: 16

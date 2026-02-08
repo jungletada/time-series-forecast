@@ -20,7 +20,7 @@ pivot=4
 #     --model $model_name \
 #     --seq_len 96 \
 #     --label_len 0 \
-#     --pred_len 192 \
+#     --pred_len 336 \
 #     --des 'Exp' \
 #     --itr 1 
 
@@ -36,7 +36,7 @@ python -u tune_tcn.py \
     --features S \
     --target OT \
     --seq_len 96 \
-    --pred_len 336 \
+    --pred_len 720 \
     --pivot $pivot \
     --train_component ${i} \
     --des 'Tuning_Exp' \
