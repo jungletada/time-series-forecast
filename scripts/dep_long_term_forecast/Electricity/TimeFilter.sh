@@ -5,7 +5,7 @@ d_model=(512 512 512 512)
 d_ff=(512 512 512 512)
 dropout=(0.5 0.4 0.4 0.4)
 patch_len=(32 32 32 32)
-pred_lens=(96 192 336 720)
+pred_lens=(720)
 
 
 model_configs=(
