@@ -2,8 +2,10 @@ import os
 import math
 import copy
 import yaml
+import time
 import random
 import argparse
+import seaborn as sns
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -65,6 +67,14 @@ def load_yaml_config(path):
         return yaml.safe_load(f) or {}
 
 
+def normalize_config_value(parser, key, value):
+    if key in {'num_blocks', 'large_size', 'small_size', 'dims', 'dw_dims'}:
+        default = parser.get_default(key)
+        if isinstance(default, list) and not isinstance(value, list):
+            return [value] * len(default)
+    return value
+
+
 def override_args_with_yaml(args, parser, config: dict):
     """
     用 YAML 配置覆盖 args 中仍处于“默认值”的字段。
@@ -75,6 +85,7 @@ def override_args_with_yaml(args, parser, config: dict):
             # argparse 中定义过的参数
             default = parser.get_default(key)
             current = getattr(args, key)
+            value = normalize_config_value(parser, key, value)
 
             # 只有当这个参数仍然是默认值时，才使用 YAML 覆盖
             # ——如果用户在命令行里改过，就不会动它
@@ -91,7 +102,7 @@ def override_args_with_yaml(args, parser, config: dict):
 def apply_model_config(args, parser):
     if not getattr(args, 'model_config', None):
         return args
-    model_cfg = load_yaml_config(args.model_config)
+    model_cfg = get_config_for_pred_len(args.model_config, args.pred_len)
     args = override_args_with_yaml(args, parser, model_cfg)
     return args
 
@@ -142,41 +153,100 @@ def load_yaml(path: str) -> dict:
         return yaml.safe_load(f) or {}
 
 
-# def adjust_learning_rate(optimizer, epoch, base_lr, args):
-#     # # 支持标量和列表形式的 learning_rate
-#     # if isinstance(args.learning_rate, (list, tuple)):
-#     #     if len(args.learning_rate) == 0:
-#     #         raise ValueError("args.learning_rate is an empty list.")
-#     #     base_lr = float(args.learning_rate[0])
-#     # else:
-#     #     base_lr = float(args.learning_rate)
+def create_sub_diagonal_matrix(n, value=1, offset=0):
+    if abs(offset) >= n:
+        return None
+    vec = torch.ones(n - abs(offset)) * value
+    return torch.diag(vec, diagonal=offset)
 
-#     # 根据 lradj 选择不同的学习率策略
-#     if args.lradj == 'type1':
-#         lr_adjust = {epoch: base_lr * (0.5 ** ((epoch - 1) // 1))}
-#     elif args.lradj == 'type2':
-#         lr_adjust = {
-#             2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
-#             10: 5e-7, 15: 1e-7, 20: 5e-8
-#         }
-#     elif args.lradj == 'type3':
-#         lr_adjust = {
-#             epoch: base_lr if epoch < 3
-#             else base_lr * (0.9 ** ((epoch - 3) // 1))
-#         }
-#     elif args.lradj == "cosine":
-#         lr_adjust = {
-#             epoch: base_lr / 2.0 * (1.0 + math.cos(epoch / args.train_epochs * math.pi))
-#         }
-#     else:
-#         # 未知的 lradj 策略，则不调整
-#         lr_adjust = {}
+def write_into_xls(excel_name, mat, columns=None):
+    file_extension = os.path.splitext(excel_name)[1]
 
-#     if epoch in lr_adjust:
-#         lr = lr_adjust[epoch]
-#         for param_group in optimizer.param_groups:
-#             param_group['lr'] = lr
-#         print(f'Updating learning rate to {lr}')
+    if file_extension != ".xls" and file_extension != ".xlsx":
+        raise ValueError('excel_name is not right in write_into_xls')
+
+    folder_name = os.path.dirname(excel_name)
+    if folder_name:
+        os.makedirs(folder_name, exist_ok=True)
+
+    if isinstance(mat, np.ndarray) and mat.ndim > 2:
+        mat = mat.reshape(-1, mat.shape[-1])
+        mat = mat[:1000]
+    if columns is not None:
+        dataframe = pd.DataFrame(mat, columns=columns)
+    else:
+        dataframe = pd.DataFrame(mat)
+    # print(dataframe)
+    # print(excel_name)
+    dataframe.to_excel(excel_name, index=False)
+    
+def plot_mat(mat, str_cat='series_2D', str0='tmp', save_folder='./results'):
+    if not isinstance(mat, np.ndarray):
+        mat = mat.detach().cpu().numpy()
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder, exist_ok=True)
+
+    # fig, axs = plt.subplots(1, 1)
+    # plt.imshow(mat, cmap='viridis', interpolation='nearest', vmin=0.0, vmax=1.0)  # viridis  hot
+    # plt.colorbar()
+
+    plt.figure(figsize=(8, 8))
+    sns.heatmap(mat, annot=False, cmap='coolwarm', square=True, cbar=True)
+    plt.xticks([])  # 去除x轴刻度
+    plt.yticks([])  # 去除y轴刻度
+    timestamp = time.strftime("%Y%m%d_%H_%M_%S", time.localtime())
+    plt.savefig(os.path.join(save_folder, f'{str_cat}_{str0}-{timestamp}.pdf'))
+    plt.show()
+    # save to excel
+    excel_name = os.path.join(save_folder, f'{str_cat}_{str0}-{timestamp}.xlsx')
+    write_into_xls(excel_name, mat)
+    # save to npy
+    np.save(os.path.join(save_folder, f'{str_cat}_{str0}-{timestamp}.npy'), mat)
+
+
+def compute_weights(alpha, length, stages=None, multiple_flag=True):
+    assert alpha <= 0
+    if alpha == 0:
+        weights = torch.ones(length)
+        return weights
+    stage_num = 1
+    rem = 0
+    if stages is not None:
+        # assert (length + 1) % stages == 0 or length % stages == 0
+        stage_num = (length + 1) // stages
+        rem = length + 1 - stage_num * stages
+
+    weights = torch.tensor([i ** alpha for i in range(length + 1, 0, -1)])
+    # weights2 = torch.tensor([i ** (alpha / 2) for i in range(length + 1, 0, -1)])
+
+    # iTransformer
+    if multiple_flag and stages is not None:
+        # on SDA now
+        slices = list(range(stage_num - 1, length, stage_num))
+        if rem > 0:
+            slices = [a + i + 1 if i < rem else a + rem for i, a in enumerate(slices)]
+        weights[slices] = torch.minimum(weights[slices] * 1.5, weights[-2])
+        # weights[slices] = weights2[slices]
+
+    # remove the first element
+    weights = weights[:length]
+
+    return weights
+
+
+def compute_gradient_norm(model):
+    """
+    Compute the norm of the gradients of a model.
+    """
+    total_norm = 0.0
+    for param in model.parameters():
+        if param.requires_grad and param.grad is not None:
+            param_norm = param.grad.data.norm(2)
+            total_norm += param_norm.item() ** 2
+
+    total_norm = total_norm ** 0.5
+    return total_norm
+
 
 def adjust_learning_rate(optimizer, epoch, args):
     # lr = args.learning_rate * (0.2 ** (epoch // 2))
@@ -187,10 +257,20 @@ def adjust_learning_rate(optimizer, epoch, args):
             2: 5e-5, 4: 1e-5, 6: 5e-6, 8: 1e-6,
             10: 5e-7, 15: 1e-7, 20: 5e-8
         }
-    elif args.lradj == "cosine":
-        lr_adjust = {epoch: args.learning_rate /2 * (1 + math.cos(epoch / args.train_epochs * math.pi))}
+    elif args.lradj == 'type3':
+        lr_adjust = {epoch: args.learning_rate if epoch < 3 else args.learning_rate * (0.9 ** ((epoch - 3) // 1))}
+    elif args.lradj == 'constant':
+        lr_adjust = {epoch: args.learning_rate}
+    elif args.lradj in ['cosine', 'card']:
+        # warmup-cosine
+        min_lr = 0
+        warmup_epochs = 0
+        lr = (min_lr + (args.learning_rate - min_lr) * 0.5 *
+              (1. + math.cos(math.pi * (epoch - warmup_epochs) / (args.train_epochs - warmup_epochs))))
+        lr_adjust = {epoch: lr}
     elif args.lradj == 'unchanged':
         lr_adjust = {epoch: args.learning_rate}
+
     if epoch in lr_adjust.keys():
         lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:

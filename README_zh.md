@@ -191,7 +191,7 @@ python -u run.py --task_name classification --is_training 1 --root_path ./datase
 
 ```bash
 # 长期预测
-bash ./scripts/long_term_forecast/ETT_script/TimesNet_ETTh1.sh
+bash ./scripts/long_term_forecast/ETTh1_script/TimesNet.sh
 # 短期预测
 bash ./scripts/short_term_forecast/TimesNet_M4.sh
 # 插补

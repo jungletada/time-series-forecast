@@ -9,6 +9,8 @@ import torch.backends
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from exp.exp_long_term_forecasting_nda import Exp_Long_Term_Forecas_NDA
 from utils.tools import seed_everything, apply_data_config, apply_model_config
+from utils.str2bool import str2bool
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='Time Series Forecasting')
@@ -90,7 +92,88 @@ def get_args():
                         help='the length of segmen-wise iteration of SegRNN')
     parser.add_argument('--kernel_size', type=int, default=5, help='kernel size for TCN')
 
+    # ModernTCN
+    parser.add_argument('--stem_ratio', type=int, default=6, help='stem ratio')
+    parser.add_argument('--downsample_ratio', type=int, default=2, help='downsample_ratio')
+    parser.add_argument('--ffn_ratio', type=int, default=2, help='ffn_ratio')
+    parser.add_argument('--patch_size', type=int, default=16, help='the patch size')
+    parser.add_argument('--patch_stride', type=int, default=8, help='the patch stride')
+
+    parser.add_argument('--num_blocks', nargs='+',type=int, default=[1,1,1,1], help='num_blocks in each stage')
+    parser.add_argument('--large_size', nargs='+',type=int, default=[31,29,27,13], help='big kernel size')
+    parser.add_argument('--small_size', nargs='+',type=int, default=[5,5,5,5], help='small kernel size for structral reparam')
+    parser.add_argument('--dims', nargs='+',type=int, default=[256,256,256,256], help='dmodels in each stage')
+    parser.add_argument('--dw_dims', nargs='+',type=int, default=[256,256,256,256])
+
+    parser.add_argument('--small_kernel_merged', type=str2bool, default=False, help='small_kernel has already merged or not')
+    parser.add_argument('--call_structural_reparam', type=bool, default=False, help='structural_reparam after training')
+    parser.add_argument('--use_multi_scale', type=str2bool, default=True, help='use_multi_scale fusion')
+
+        # orthoLinear
+    parser.add_argument('--CovMatTrans', type=str, default='softmax', help='CovMatTrans for ablations')
+    parser.add_argument('--WeightTrans', type=str, default='softplus', help='WeightTrans for ablations')
+    parser.add_argument('--NormSet', type=str, default='L1', help='NormSet for ablations')
+    parser.add_argument('--pre_lin', type=int, default=1, help='pre_linear for orthoLinear')
+    parser.add_argument('--post_lin', type=int, default=1, help='post_linear for orthoLinear')
+    parser.add_argument('--var_linear_mode', type=str, default='attn_linear', help='var_linear_mode for orthoLinear')
+    parser.add_argument('--temp_linear', type=int, default=1, help='temp_linear for orthoLinear')
+    parser.add_argument('--temp_attn_linear', type=int, default=0, help='temp_attn_linear for orthoLinear')
+    parser.add_argument('--var_linear_enable', type=int, default=1, help='var_linear_enable for orthoLinear')
+    parser.add_argument('--ortho_enc', type=int, default=1, help='ortho_enc for orthoLinear')
+    parser.add_argument('--ortho_dec', type=int, default=1, help='ortho_dec for orthoLinear')
+    parser.add_argument('--ortho_n_heads', type=int, default=2, help='ortho_n_heads for orthoLinear')
+
+    parser.add_argument('--PatchTST_linear', type=int, default=0, help='PatchTST_linear for PatchTST')
+    parser.add_argument('--iTrans_linear', type=int, default=0, help='iTrans_linear for iTrans')
+    parser.add_argument('--Leddam_attnLinear', type=int, default=0, help='Leddam_attnLinear for Leddam')
+
+    parser.add_argument('--iTrans_ortho_trans', type=int, default=0, help='iTrans_ortho_trans for iTrans')
+    parser.add_argument('--PatchTST_ortho_trans', type=int, default=0, help='PatchTST_ortho_trans for PatchTST')
+    parser.add_argument('--DLinear_ortho_trans', type=int, default=0, help='PatchTST_ortho_trans for PatchTST')
+
+    # used for ablations (model=orthoLinear_ablation_lin_design)
+    parser.add_argument('--onlyconv', type=int, default=0, help='onlyconv for orthoLinear')
+
+    # part train
+    parser.add_argument('--train_part_first', type=float, default=0.0, help='train_part_first for dataLoader')
+
+    parser.add_argument('--attn_type', type=str, default='Enhanced', help='attention types')
+
+    # save weight
+    parser.add_argument('--save_linear_weight', type=int, default=0, help='save_linear_weight for orthoLinear')
+    parser.add_argument('--save_linear_weight_path', type=str, default='weight_npy',
+                        help='save_linear_weight_path for orthoLinear')
+    parser.add_argument('--save_linear_weight_tag', type=str, default='tag',
+                        help='save_linear_weight_tag for orthoLinear')
+
+    # orthoformer
+    parser.add_argument('--q_mat_file', type=str, default=None, help='q_mat_file npy file')
+    parser.add_argument('--c_mat_file', type=str, default=None, help='c_mat_file npy file')
+    parser.add_argument('--q_channel_file', type=str, default=None, help='q_channel_file npy file')
+    parser.add_argument('--Q_MAT_file', type=str, default=None, help='Q_MAT_file npy file')
+    parser.add_argument('--q_out_mat_file', type=str, default=None, help='q_out_mat_file npy file')
+    parser.add_argument('--c_out_mat_file', type=str, default=None, help='c_out_mat_file npy file')
+    parser.add_argument('--Q_OUT_MAT_file', type=str, default=None, help='Q_OUT_MAT_file npy file')
+    parser.add_argument('--Q_chan_indep', type=int, default=0, help='Q_channel_independence')
+    parser.add_argument('--Q_loss', type=int, default=0, help='use Q_mat in loss function')
+    parser.add_argument('--FFT_loss', type=int, default=0, help='use FFT_loss in loss function')
+    parser.add_argument('--Q_loss_alpha', type=float, default=0.5, help='Q_loss_alpha')
+    parser.add_argument('--dim_reduce_ratio', type=float, default=1.0, help='dim_reduce_ratio')
+    
+    # PatchMLP
+    parser.add_argument('--output_attention', action='store_true', default=False, help='whether to output attention in encoder')
+    
+    # PatchTST
+    parser.add_argument('--head_dropout', type=float, default=0.0, help='head dropout')
+    parser.add_argument('--padding_patch', default='end', help='None: None; end: padding on the end')
+    parser.add_argument('--revin', type=int, default=1, help='RevIN; True 1 False 0')
+    parser.add_argument('--affine', type=int, default=0, help='RevIN-affine; True 1 False 0')
+    parser.add_argument('--subtract_last', type=int, default=0, help='0: subtract mean; 1: subtract last')
+    parser.add_argument('--decomposition', type=int, default=0, help='decomposition; True 1 False 0')
+    parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
+
     # optimization
+    parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer')
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
@@ -102,6 +185,7 @@ def get_args():
     parser.add_argument('--loss', type=str, default='MSE', help='loss function')
     parser.add_argument('--moe_weight', type=float, default=0.05, help='moe loss weight')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
+    parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
     # GPU
@@ -146,7 +230,15 @@ def get_args():
 
     # TimeXer
     parser.add_argument('--patch_len', type=int, default=16, help='patch length')
-
+    # PatchMLP multi-scale Emb (optional; default None uses seq_len-adaptive lengths in layers.Embed)
+    parser.add_argument('--emb_patch_lens', type=int, nargs=4, default=None,
+                        help='PatchMLP Emb: four patch lengths, e.g. 48 24 12 6; omit for adaptive')
+    # Patching
+    parser.add_argument('--temp_stride', type=int, default=8, help='temp_stride for temporal patching')
+    parser.add_argument('--temp_patch_len', type=int, default=16, help='temp_patch_len for patching')
+    parser.add_argument('--temp_patch_len2', type=int, default=16, help='temp_patch_len2')
+    parser.add_argument('--temp_stride2', type=int, default=8, help='temp_stride2')
+    parser.add_argument('--Patch_CI', type=int, default=1, help='use channel independence or not')
     # GCN
     parser.add_argument('--node_dim', type=int, default=10, help='each node embbed to dim dimentions')
     parser.add_argument('--gcn_depth', type=int, default=2, help='')
@@ -155,14 +247,30 @@ def get_args():
     parser.add_argument('--conv_channel', type=int, default=32, help='')
     parser.add_argument('--skip_channel', type=int, default=32, help='')
 
-    parser.add_argument('--individual', action='store_true', default=False,
-                        help='DLinear: a linear layer for each variate(channel) individually')
-
     # TimeFilter
     parser.add_argument('--alpha', type=float, default=0.1, help='KNN for Graph Construction')
     parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
     parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
 
+    # leddam
+    parser.add_argument('--pe_type', type=str, default='no', help='position embedding type')
+
+    # card
+    parser.add_argument('--fc_dropout', type=float, default=0.3, help='fully connected dropout')
+    # freformer
+    parser.add_argument('--embed_size', type=int, default=8, help='embed_size')
+    parser.add_argument('--plot_mat_flag', type=int, default=0, help='plot_mat_flag')
+    parser.add_argument('--plot_grad_flag', type=int, default=0, help='plot_grad_flag')
+    parser.add_argument('--time_branch', type=int, default=0, help='time_branch')
+    parser.add_argument('--CKA_flag', type=int, default=0, help='CKA_flag')
+    parser.add_argument('--checkpoint_check', type=int, default=0, help='if checkpoint exists, skip training')
+    parser.add_argument('--attn_enhance', type=int, default=1, help='attn_enhance')
+    parser.add_argument('--attn_softmax_flag', type=int, default=1, help='attn_softmax_flag')
+    parser.add_argument('--attn_weight_plus', type=int, default=0, help='attn_weight_plus')
+    parser.add_argument('--attn_outside_softmax', type=int, default=0, help='attn_outside_softmax')
+    parser.add_argument('--plot_mat_label', type=str, default='dataset', help='plot_mat_label; only '
+                                                                              'effective when plot_mat_flag enabled')
+    
     # 1. 先按代码默认值 + 命令行解析一遍
     args = parser.parse_args()
 
@@ -221,7 +329,11 @@ if __name__ == '__main__':
             Exp = Exp_Long_Term_Forecas_NDA
             args.data_type = args.data_type + '_dep'
         else:
-            Exp = Exp_Long_Term_Forecast
+            if args.model == 'OLinear':
+                from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast_OLinear
+                Exp = Exp_Long_Term_Forecast_OLinear
+            else:
+                Exp = Exp_Long_Term_Forecast
 
     if args.is_training:
         for exp_time in range(args.itr):

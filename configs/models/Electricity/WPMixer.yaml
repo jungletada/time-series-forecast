@@ -1,0 +1,52 @@
+"common":
+  task_name: long_term_forecast
+  data_name: Electricity
+  model: WPMixer
+  is_training: 0
+  model_id: WPMixer
+  features: S
+  seq_len: 96
+  label_len: 0
+  batch_size: 32
+  train_epochs: 100
+  lradj: type3
+  patience: 12
+  patch_len: 16
+  d_model: 32
+  use_amp: true
+
+"96":
+  learning_rate: 0.00328086
+  dropout: 0.1
+  wavelet: sym3
+  level: 2
+  tfactor: 3
+  dfactor: 5
+  patch_stride: 8
+
+"192":
+  learning_rate: 0.000493286
+  dropout: 0.1
+  wavelet: coif5
+  level: 3
+  tfactor: 7
+  dfactor: 5
+  patch_stride: 8
+
+"336":
+  learning_rate: 0.002505375
+  dropout: 0.2
+  wavelet: sym4
+  level: 1
+  tfactor: 5
+  dfactor: 7
+  patch_stride: 8
+
+"720":
+  learning_rate: 0.001977516
+  dropout: 0.1
+  wavelet: db2
+  level: 2
+  tfactor: 7
+  dfactor: 8
+  patch_stride: 8

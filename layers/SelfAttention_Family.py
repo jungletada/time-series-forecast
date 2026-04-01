@@ -1,10 +1,14 @@
+import os
+import random
 import torch
 import torch.nn as nn
 import numpy as np
 from math import sqrt
+import torch.nn.functional as F
 from utils.masking import TriangularCausalMask, ProbMask
 from reformer_pytorch import LSHSelfAttention
-from einops import rearrange, repeat
+from einops import rearrange
+# from utils.tools import plot_mat
 
 
 class DSAttention(nn.Module):
@@ -300,3 +304,153 @@ class TwoStageAttentionLayer(nn.Module):
         final_out = rearrange(dim_enc, '(b seg_num) ts_d d_model -> b ts_d seg_num d_model', b=batch)
 
         return final_out
+
+
+class FullAttention_ablation(nn.Module):
+    def __init__(self, mask_flag=False, factor=5, scale=None, attention_dropout=0.1, output_attention=False,
+                 token_num=None, SF_mode=1, softmax_flag=1, weight_plus=0, outside_softmax=0,
+                 plot_mat_flag=False, save_folder='./', plot_grad_flag=False):  # './utils/corr_mat/traffic.npy'
+        super(FullAttention_ablation, self).__init__()
+        self.scale = scale
+        self.mask_flag = mask_flag
+        self.output_attention = output_attention
+        self.dropout = nn.Dropout(attention_dropout)
+        self.SF_mode = SF_mode
+        self.softmax_flag = softmax_flag
+        self.token_num = token_num
+        self.outside_softmax = outside_softmax  # False  #
+        self.weight_plus = weight_plus
+        self.plot_mat_flag = plot_mat_flag
+        self.plot_grad_flag = plot_grad_flag
+        self.save_folder = os.path.join(save_folder)
+        if self.plot_mat_flag and not os.path.exists(self.save_folder):
+            os.makedirs(self.save_folder, exist_ok=True)
+        self.num_heads = 1
+
+        print(f'self.weight_plus in FullAttention_ablation: {self.weight_plus}')
+        print(f'self.softmax_flag in FullAttention_ablation: {self.softmax_flag}')
+        print(f'self.outside_softmax in FullAttention_ablation: {self.outside_softmax}')
+
+        if not self.SF_mode:
+            print('Vanilla attention is used...')
+        else:
+            print('Enhanced attention is used...')
+
+        if self.SF_mode and self.token_num is not None:
+            # [1,1,N,1]
+            if self.softmax_flag:
+                self.tau = nn.Parameter(torch.ones(1, 1, self.token_num, 1))
+
+            init_weight_mat = (torch.eye(self.token_num) * 1.0 +
+                               torch.randn(self.token_num, self.token_num) * 1.0)
+            # ablation
+            # init_weight_mat = (torch.eye(self.token_num) * 0.0 +
+            #                    torch.randn(self.token_num, self.token_num) * 1.0)
+            self.weight_mat = nn.Parameter(init_weight_mat[None, None, :, :].repeat(1, self.num_heads or 1, 1, 1))
+
+    def forward(self, queries, keys, values, attn_mask, tau=None, delta=None, token_weight=None):
+        B, L, H, E = queries.shape
+        _, S, _, D = values.shape
+        scale = self.scale or 1. / sqrt(E)
+        # this_device = queries.device
+
+        scores = torch.einsum("blhe,bshe->bhls", queries, keys)
+
+        if self.mask_flag:
+            if attn_mask is None:
+                attn_mask = TriangularCausalMask(B, L, device=queries.device)
+
+            scores.masked_fill_(attn_mask.mask, -np.inf)
+
+        A = scale * scores
+
+        weight_mat = None
+        ori_attn_mat = None
+        if self.SF_mode:
+            if not self.training and self.plot_mat_flag:
+                ori_attn_mat = torch.softmax(A, dim=-1)
+
+        # attention matrix adjustment; 240507
+        if self.SF_mode and self.token_num is not None:
+            # 2d
+            if self.softmax_flag:
+                weight_mat = F.softmax(self.weight_mat / F.softplus(self.tau), dim=-1)
+            else:
+                # use scale or not
+                weight_mat = F.softplus(self.weight_mat)  # / sqrt(self.token_num)
+
+        if self.SF_mode and weight_mat is not None:
+            if self.outside_softmax:
+                if self.weight_plus:
+                    A = A.softmax(dim=-1) + weight_mat
+                else:
+                    A = A.softmax(dim=-1) * weight_mat
+                A = F.normalize(A, p=1, dim=-1)
+            else:
+                if self.weight_plus:
+                    A = A + weight_mat
+                else:
+                    # ablation: this is a better choice
+                    A = A * weight_mat
+
+                # attention matrix [b,h,l,s]
+                A = torch.softmax(A, dim=-1)
+
+        else:
+            A = torch.softmax(A, dim=-1)
+
+        # # plot mat
+        # if not self.training and self.plot_mat_flag and random.random() < 1:  # and A.shape[-1] > 10
+        #     batch_idx = random.randint(0, A.shape[0] - 1)
+        #     head_idx = random.randint(0, A.shape[1] - 1)
+
+        #     # final
+        #     att_mat_2d = A[batch_idx, head_idx, :, :]
+        #     time_or_channel = 'channel'
+        #     plot_mat(att_mat_2d, str_cat='final_attn_mat', str0=f"batch_{batch_idx}_head_{head_idx}_{time_or_channel}",
+        #              save_folder=self.save_folder)
+
+        #     if ori_attn_mat is not None and self.SF_mode:
+        #         ori_att_mat_2d = ori_attn_mat[batch_idx, head_idx, :, :]
+        #         time_or_channel = 'channel'
+        #         plot_mat(ori_att_mat_2d, str_cat='ori_attn_mat', str0=f"batch_{batch_idx}_head_{head_idx}_"
+        #                                                               f"{time_or_channel}",
+        #                  save_folder=self.save_folder)
+
+        #     if weight_mat is not None and self.SF_mode:
+        #         batch_idx2 = min(batch_idx, weight_mat.shape[0] - 1)
+        #         head_idx2 = min(head_idx, weight_mat.shape[1] - 1)
+        #         weight_mat_2d = weight_mat[batch_idx2, head_idx2, :, :]
+
+        #         plot_mat(weight_mat_2d, str_cat='adding_mat_2d',
+        #                  str0=f"batch_{batch_idx2}_head_{head_idx2}_{time_or_channel}",
+        #                  save_folder=self.save_folder)
+
+        #     print(f'Attention matrix in FullAttention has been saved to {self.save_folder}...')
+
+        # dropout, reserved
+        A = self.dropout(A)
+
+        # print(f'A.shape: {A.shape}')
+        # print(f'values.shape: {values.shape}')
+        V = torch.einsum("bhls,bshd->blhd", A, values)
+
+        # # plot gradient
+        # if self.plot_grad_flag and random.random() < 0.01 and self.weight_mat.grad is not None:
+        #     batch_idx = random.randint(0, self.weight_mat.shape[0] - 1)
+        #     head_idx = random.randint(0, self.weight_mat.shape[1] - 1)
+
+        #     # final
+        #     weight_mat_grad = self.weight_mat.grad[batch_idx, head_idx, :, :]
+        #     time_or_channel = 'channel'
+        #     plot_mat(weight_mat_grad, str_cat='weight_grad_mat',
+        #              str0=f"batch_{batch_idx}_head_{head_idx}_{time_or_channel}",
+        #              save_folder=self.save_folder)
+
+        #     print(f'Attention gradient matrix in FullAttention has been saved to {self.save_folder}...')
+
+        if self.output_attention:
+            return V.contiguous(), A
+        else:
+            return V.contiguous(), None
+

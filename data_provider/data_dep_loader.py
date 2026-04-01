@@ -56,6 +56,7 @@ class Dataset_Custom_Decomposed(Dataset):
     def __init__(self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None):
         self.args = args
+        self.mnn = args.mnn
         # size [seq_len, label_len, pred_len]
         self.seq_len = size[0]
         self.label_len = size[1]

@@ -8,7 +8,9 @@ patch_len=(2 2 2 2)
 d_model=(128 128 128 128)
 d_ff=(256 256 256 128)
 learning_rate=0.0001
-model_configs=(configs/models/ETTm2/Timefilter_0.yaml configs/models/ETTm2/Timefilter_1.yaml configs/models/ETTm2/Timefilter_2.yaml)
+model_configs=(configs/models/ETTm2/Timefilter_0.yaml 
+            configs/models/ETTm2/Timefilter_1.yaml 
+            configs/models/ETTm2/Timefilter_2.yaml)
 
 pred_lens=(720)
 for i in "${!pred_lens[@]}"; do

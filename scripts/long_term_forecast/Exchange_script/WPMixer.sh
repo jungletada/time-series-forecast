@@ -1,6 +1,3 @@
-
-export CUDA_VISIBLE_DEVICES=0
-
 # Datasets and prediction lengths
 # seq_lens=(512 512 512 512)
 seq_lens=(96 96 96 96)

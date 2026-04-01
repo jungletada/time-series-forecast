@@ -232,7 +232,7 @@ We provide the experiment scripts for all benchmarks under the folder `./scripts
 
 ```bash
 # long-term forecast
-bash ./scripts/long_term_forecast/ETT_script/TimesNet_ETTh1.sh
+bash ./scripts/long_term_forecast/ETTh1_script/TimesNet.sh
 # short-term forecast
 bash ./scripts/short_term_forecast/TimesNet_M4.sh
 # imputation

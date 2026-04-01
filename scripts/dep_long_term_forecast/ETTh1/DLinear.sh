@@ -18,7 +18,7 @@ for i in "${!pred_lens[@]}"; do
     --des 'Exp' \
     --itr 1
 
-      python -u run_dep.py \
+  python -u run_dep.py \
     --task_name long_term_forecast \
     --is_training 0 \
     --use_mnn 1 \

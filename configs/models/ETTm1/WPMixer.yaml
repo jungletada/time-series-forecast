@@ -1,0 +1,54 @@
+"common":
+  task_name: long_term_forecast
+  data_name: ETTm1
+  model: WPMixer
+  is_training: 1
+  model_id: wpmixer
+  features: S
+  target: OT
+  c_out: 1
+  seq_len: 96
+  label_len: 0
+  batch_size: 256
+  train_epochs: 80
+  lradj: type3
+  patience: 12
+  patch_len: 48
+  dropout: 0.4
+  use_amp: true
+
+"96":
+  learning_rate: 0.001277976
+  d_model: 256
+  wavelet: db2
+  level: 1
+  tfactor: 5
+  dfactor: 3
+  patch_stride: 24
+
+"192":
+  learning_rate: 0.002415901
+  d_model: 128
+  wavelet: db3
+  level: 1
+  tfactor: 3
+  dfactor: 7
+  patch_stride: 24
+
+"336":
+  learning_rate: 0.001594735
+  d_model: 256
+  wavelet: db5
+  level: 1
+  tfactor: 7
+  dfactor: 7
+  patch_stride: 24
+
+"720":
+  learning_rate: 0.002011441
+  d_model: 128
+  wavelet: db5
+  level: 4
+  tfactor: 3
+  dfactor: 8
+  patch_stride: 24

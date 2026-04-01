@@ -8,7 +8,9 @@ d_model=16
 d_ff=32
 e_layers=2
 pred_lens=(96 192 336 720)
-model_configs=(configs/models/TimeMixer_0_ETTh1.yaml configs/models/TimeMixer_1_ETTh1.yaml configs/models/TimeMixer_2_ETTh1.yaml)
+model_configs=(configs/models/TimeMixer_0_ETTh1.yaml 
+              configs/models/TimeMixer_1_ETTh1.yaml 
+              configs/models/TimeMixer_2_ETTh1.yaml)
 
 for i in "${!pred_lens[@]}"; do
   python -u run_dep.py \

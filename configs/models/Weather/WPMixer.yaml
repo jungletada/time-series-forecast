@@ -1,0 +1,55 @@
+"common":
+  task_name: long_term_forecast
+  data_name: Weather
+  model: WPMixer
+  is_training: 0
+  model_id: WPMixer
+  features: S
+  seq_len: 96
+  label_len: 0
+  train_epochs: 60
+  lradj: type3
+  patience: 12
+  patch_len: 16
+  dropout: 0.4
+  use_amp: true
+
+"96":
+  learning_rate: 0.000913333
+  batch_size: 32
+  d_model: 256
+  wavelet: db3
+  level: 2
+  tfactor: 3
+  dfactor: 7
+  patch_stride: 8
+
+"192":
+  learning_rate: 0.001379042
+  batch_size: 64
+  d_model: 128
+  wavelet: db3
+  level: 1
+  tfactor: 3
+  dfactor: 7
+  patch_stride: 8
+
+"336":
+  learning_rate: 0.000607991
+  batch_size: 32
+  d_model: 128
+  wavelet: db3
+  level: 2
+  tfactor: 7
+  dfactor: 7
+  patch_stride: 8
+
+"720":
+  learning_rate: 0.001470479
+  batch_size: 128
+  d_model: 128
+  wavelet: db2
+  level: 1
+  tfactor: 7
+  dfactor: 5
+  patch_stride: 8

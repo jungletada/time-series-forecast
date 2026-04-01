@@ -4,13 +4,14 @@ from models import Autoformer, Transformer, TimesNet, Nonstationary_Transformer,
     Informer, LightTS, Reformer, ETSformer, Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer, \
     Koopa, TiDE, FreTS, TimeMixer, TSMixer, SegRNN, MambaSimple, TemporalFusionTransformer, SCINet, PAttn, TimeXer, \
     WPMixer, MultiPatchFormer, KANAD, MSGNet, TimeFilter, Sundial, TimeMoE, Chronos, Moirai, TiRex,\
-    TimesFM, Chronos2, TCN, RNN
+    TimesFM, Chronos2, TCN, RNN, ModernTCN, PatchMLP, FrePatchTST3_attn_ablation
 
 
 class Exp_Basic(object):
     def __init__(self, args):
         self.args = args
         self.model_dict = {
+            'PatchMLP': PatchMLP,
             'TimesNet': TimesNet,
             'Autoformer': Autoformer,
             'Transformer': Transformer,
@@ -52,6 +53,8 @@ class Exp_Basic(object):
             'Chronos2': Chronos2,
             'TCN': TCN,
             'RNN': RNN,
+            'ModernTCN': ModernTCN,
+            'FrePatchTST3_attn_ablation': FrePatchTST3_attn_ablation,
         }
         if args.model == 'Mamba':
             print('Please make sure you have successfully installed mamba_ssm')

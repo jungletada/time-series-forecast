@@ -1,0 +1,61 @@
+"common":
+  seq_len: 96
+  embed_size: 16
+  batch_size: 32
+  learning_rate: 0.0001
+  itr: 1
+  e_layers: 2
+  lossfun_alpha: 0.5
+  test_batch_size: 16
+  test_mode: 0
+  CKA_flag: 0
+  fix_seed: 1
+  resume_training: 0
+  resume_epoch: 0
+  save_every_epoch: 0
+  use_revin: 1
+  use_norm: 1
+  send_mail: 0
+  save_pdf: 0
+  patience: 8
+  lradj: type1
+  loss_mode: L1
+  train_ratio: 1.0
+  dropout: 0.0
+  plot_mat_flag: 0
+  attn_enhance: 1
+  attn_softmax_flag: 0
+  attn_weight_plus: 1
+  attn_outside_softmax: 1
+
+"96":
+  embed_size: 16
+  d_model: 256
+  d_ff: 256
+  learning_rate: 0.0001
+  dropout: 0.0
+  train_epochs: 4
+
+"192":
+  embed_size: 16
+  d_model: 128
+  d_ff: 128
+  learning_rate: 0.0001
+  dropout: 0.0
+  train_epochs: 2
+
+"336":
+  embed_size: 16
+  d_model: 256
+  d_ff: 256
+  learning_rate: 0.0001
+  dropout: 0.0
+  train_epochs: 1
+
+"720":
+  embed_size: 16
+  d_model: 256
+  d_ff: 256
+  learning_rate: 0.0001
+  dropout: 0.0
+  train_epochs: 5

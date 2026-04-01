@@ -67,7 +67,7 @@ We provide the experiment scripts for all benchmarks under the folder `scripts/`
 
 ```bash
 # long-term forecast
-bash scripts/long_term_forecast/ETT_script/TimesNet_ETTh1.sh
+bash scripts/long_term_forecast/ETTh1_script/TimesNet.sh
 # short-term forecast
 bash scripts/short_term_forecast/TimesNet_M4.sh
 ```
@@ -151,6 +151,33 @@ time-series-forecast/
                                         [ t  ....................  t+95 ]
 
 ```
+
+## 新增内容：NDA
+- NDA + Timefilter
+```bash
+bash scripts/dep_long_term_forecast/ETTh1/TimeFilter.sh
+```
+会自动读取`configs/models/ETTh1`里面的 `Timefilter_0.yaml`，`Timefilter_1.yaml`，`Timefilter_2.yaml`
+
+- NDA + WPMixer
+```bash
+bash scripts/dep_long_term_forecast/ETTh1/WPMixer.sh
+```
+注意文件夹`configs/models`里面的下不一定有`WPMixer_0.yaml`, `WPMixer_1.yaml`, `WPMixer_2.yaml`，需要复制`WPMixer.yaml`再自行创建。
+
+- NDA + FreEformer
+```bash
+bash scripts/dep_long_term_forecast/ETTh1/FreEformer.sh
+```
+注意文件夹`configs/models`里面的下不一定有`FreEformer_0.yaml`, `FreEformer_1.yaml`, `FreEformer_2.yaml`，需要复制`FreEformer.yaml`再自行创建。
+
+
+- NDA + PatchMLP
+```bash
+bash scripts/dep_long_term_forecast/ETTh1/PatchMLP.sh
+```
+注意文件夹`configs/models`里面的下不一定有`PatchMLP_0.yaml`, `PatchMLP_1.yaml`, `PatchMLP_2.yaml`，需要复制`PatchMLP.yaml`再自行创建。
+
 
 ## Citation
 

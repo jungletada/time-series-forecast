@@ -190,3 +190,106 @@ class PatchEmbedding(nn.Module):
         # Input encoding
         x = self.value_embedding(x) + self.position_embedding(x)
         return self.dropout(x), n_vars
+
+
+def _emb_layer_patch_num(seq_len, patch_len, patch_step):
+    return int((seq_len - patch_len) / patch_step + 1)
+
+
+def _emb_patch_lens_valid(seq_len, patch_lens):
+    for pl in patch_lens:
+        ps = max(1, pl // 2)
+        if pl < 2 or pl > seq_len:
+            return False
+        if _emb_layer_patch_num(seq_len, pl, ps) < 1:
+            return False
+    return True
+
+
+# 与历史行为一致：以 ref_seq=96 对应默认 [48,24,12,6]；更短序列按同比例缩小直至每层 patch_num>=1
+_PATCH_MLP_EMB_DEFAULT = (48, 24, 12, 6)
+_PATCH_MLP_EMB_REF_SEQ = 96
+
+
+def compute_patch_mlp_emb_patch_lens(seq_len, ref_seq=_PATCH_MLP_EMB_REF_SEQ, default=_PATCH_MLP_EMB_DEFAULT):
+    """为 PatchMLP 的 Emb 选择四尺度 patch 长度。seq_len>=48 且足够覆盖默认尺度时返回 [48,24,12,6]（与旧版 seq_len=96 一致）。"""
+    default = tuple(default)
+    pls = list(default)
+    if _emb_patch_lens_valid(seq_len, pls):
+        return pls
+    scale = seq_len / float(ref_seq)
+    candidate = [max(2, min(seq_len, int(round(p * scale)))) for p in default]
+    for i in range(1, len(candidate)):
+        if candidate[i] >= candidate[i - 1]:
+            candidate[i] = max(2, candidate[i - 1] // 2)
+    if _emb_patch_lens_valid(seq_len, candidate):
+        return candidate
+    s = scale
+    while s >= 0.05:
+        candidate = [max(2, min(seq_len, int(round(p * s)))) for p in default]
+        for i in range(1, len(candidate)):
+            if candidate[i] >= candidate[i - 1]:
+                candidate[i] = max(2, candidate[i - 1] // 2)
+        if _emb_patch_lens_valid(seq_len, candidate):
+            return candidate
+        s *= 0.85
+    raise ValueError(f'Cannot derive valid Emb patch lengths for seq_len={seq_len}')
+
+
+class EmbLayer(nn.Module):
+
+    def __init__(self, patch_len, patch_step, seq_len, d_model):
+        super().__init__()
+        self.patch_len = patch_len
+        self.patch_step = patch_step
+
+        patch_num = int((seq_len - patch_len) / patch_step + 1)
+        self.d_model = d_model // patch_num
+        self.ff = nn.Sequential(
+            nn.Linear(patch_len, self.d_model),
+        )
+        self.flatten = nn.Flatten(start_dim=-2)
+
+        self.ff_1 = nn.Sequential(
+            nn.Linear(self.d_model * patch_num, d_model),
+        )
+
+    def forward(self, x):
+        B, V, L = x.shape
+        x = x.unfold(dimension=-1, size=self.patch_len, step=self.patch_step)
+        x = self.ff(x)
+        x = self.flatten(x)
+
+        x = self.ff_1(x)
+        return x
+
+class Emb(nn.Module):
+
+    def __init__(self, seq_len, d_model, patch_len=None):
+        super().__init__()
+        if patch_len is None:
+            patch_len = compute_patch_mlp_emb_patch_lens(seq_len)
+        else:
+            patch_len = list(patch_len)
+            if len(patch_len) != 4:
+                raise ValueError('Emb patch_len must be a sequence of 4 ints')
+            if not _emb_patch_lens_valid(seq_len, patch_len):
+                raise ValueError(
+                    f'Emb patch_len {patch_len} invalid for seq_len={seq_len} '
+                    f'(need patch_len in [2, seq_len] and patch_num >= 1 per scale)'
+                )
+        patch_step = patch_len
+        d_model = d_model//4
+        self.EmbLayer_1 = EmbLayer(patch_len[0], patch_step[0] // 2, seq_len, d_model)
+        self.EmbLayer_2 = EmbLayer(patch_len[1], patch_step[1] // 2, seq_len, d_model)
+        self.EmbLayer_3 = EmbLayer(patch_len[2], patch_step[2] // 2, seq_len, d_model)
+        self.EmbLayer_4 = EmbLayer(patch_len[3], patch_step[3] // 2, seq_len, d_model)
+
+    def forward(self, x):
+        s_x1 = self.EmbLayer_1(x)
+        s_x2 = self.EmbLayer_2(x)
+        s_x3 = self.EmbLayer_3(x)
+        s_x4 = self.EmbLayer_4(x)
+        s_out = torch.cat([s_x1, s_x2, s_x3, s_x4], -1)
+        return s_out
+    

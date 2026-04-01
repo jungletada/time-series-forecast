@@ -4,9 +4,9 @@ from . import DLinear, FEDformer, Informer, LightTS, Reformer, ETSformer
 from . import Pyraformer, PatchTST, MICN, Crossformer, FiLM, iTransformer
 from . import Koopa, TiDE, FreTS, TimeMixer, TSMixer, SegRNN, TCN
 from . import TemporalFusionTransformer, SCINet, PAttn, TimeXer
-from . import WPMixer, MultiPatchFormer, KANAD, MSGNet, TimeFilter
-from . import TEFN, RNN
-
+from . import WPMixer, MultiPatchFormer, KANAD, MSGNet, TimeFilter, ModernTCN
+from . import TEFN, RNN, OLinear, PatchMLP
+from . import FrePatchTST3_attn_ablation
 # Optional models - gracefully skip if dependencies are missing
 try:
     from . import Mamba
@@ -57,5 +57,5 @@ __all__ = [
     'MambaSimple', 'TemporalFusionTransformer', 'SCINet', 'PAttn', 'TimeXer',
     'WPMixer', 'MultiPatchFormer', 'KANAD', 'MSGNet', 'TimeFilter', 'TCN',
     'Sundial', 'TimeMoE', 'Chronos', 'Moirai', 'TiRex', 'TimesFM', 'Chronos2', 
-    'TEFN', 'RNN',
+    'TEFN', 'RNN', 'ModernTCN', 'OLinear', 'PatchMLP', 'FrePatchTST3_attn_ablation',
 ]

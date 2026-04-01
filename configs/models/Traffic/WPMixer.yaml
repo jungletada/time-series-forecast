@@ -1,0 +1,63 @@
+"common":
+  task_name: long_term_forecast
+  data_name: Traffic
+  model: WPMixer
+  is_training: 1
+  features: S
+  target: OT
+  c_out: 1
+  seq_len: 96
+  label_len: 0
+  batch_size: 16
+  lradj: type3
+  patience: 12
+  patch_len: 16
+  use_amp: true
+
+"96":
+  learning_rate: 0.0010385
+  d_model: 16
+  dropout: 0.05
+  train_epochs: 60
+  model_id: wpmixer_96_96
+  wavelet: db3
+  level: 1
+  tfactor: 3
+  dfactor: 5
+  patch_stride: 8
+
+"192":
+  learning_rate: 0.000567053
+  d_model: 32
+  dropout: 0.05
+  train_epochs: 60
+  model_id: wpmixer_96_192
+  wavelet: db3
+  level: 1
+  tfactor: 3
+  dfactor: 5
+  patch_stride: 8
+
+"336":
+  learning_rate: 0.001026715
+  d_model: 32
+  dropout: 0.0
+  train_epochs: 50
+  model_id: wpmixer_96_336
+  wavelet: "bior3.1"
+  level: 1
+  tfactor: 7
+  dfactor: 7
+  patch_stride: 8
+
+"720":
+  learning_rate: 0.001496217
+  d_model: 32
+  dropout: 0.05
+  train_epochs: 60
+  model_id: wpmixer_96_720
+  wavelet: db3
+  level: 1
+  tfactor: 7
+  dfactor: 3
+  patch_stride: 8

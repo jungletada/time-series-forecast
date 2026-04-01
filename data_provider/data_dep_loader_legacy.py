@@ -9,6 +9,7 @@ from utils.timefeatures import time_features
 from utils.augmentation import run_augmentation_single
 warnings.filterwarnings('ignore')
 
+
 def merge_components(data_npy, k):
     """
     Merge IMFs into 3 components: High, Mid, Low frequencies.

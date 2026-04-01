@@ -1,0 +1,81 @@
+"common": {}
+
+"96":
+  ffn_ratio: 1
+  patch_size: 1
+  patch_stride: 1
+  num_blocks: 1
+  large_size: 51
+  small_size: 5
+  dims: [64, 64, 64, 64]
+  head_dropout: 0.6
+  dropout: 0.2
+  itr: 1
+  train_epochs: 100
+  batch_size: 128
+  patience: 20
+  learning_rate: 0.0001
+  des: Exp
+  lradj: type3
+  use_multi_scale: false
+  small_kernel_merged: false
+
+"192":
+  ffn_ratio: 1
+  patch_size: 1
+  patch_stride: 1
+  num_blocks: 1
+  large_size: 51
+  small_size: 5
+  dims: [64, 64, 64, 64]
+  head_dropout: 0.6
+  dropout: 0.2
+  itr: 1
+  train_epochs: 100
+  batch_size: 128
+  patience: 20
+  learning_rate: 0.0001
+  des: Exp
+  lradj: type3
+  use_multi_scale: false
+  small_kernel_merged: false
+
+"336":
+  ffn_ratio: 1
+  patch_size: 1
+  patch_stride: 1
+  num_blocks: 1
+  large_size: 51
+  small_size: 5
+  dims: [64, 64, 64, 64]
+  head_dropout: 0.6
+  dropout: 0.2
+  itr: 1
+  train_epochs: 100
+  batch_size: 512
+  patience: 20
+  learning_rate: 0.0001
+  des: Exp
+  lradj: type3
+  use_multi_scale: false
+  small_kernel_merged: false
+
+"720":
+  ffn_ratio: 1
+  patch_size: 1
+  patch_stride: 1
+  num_blocks: 1
+  large_size: 51
+  small_size: 5
+  dims: [64, 64, 64, 64]
+  head_dropout: 0.6
+  dropout: 0.2
+  itr: 1
+  train_epochs: 100
+  batch_size: 512
+  patience: 20
+  learning_rate: 0.0001
+  des: Exp
+  lradj: type3
+  use_multi_scale: false
+  small_kernel_merged: false

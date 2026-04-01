@@ -1,0 +1,57 @@
+# PatchMLP：Emb 默认按 seq_len 自适应四尺度；需固定尺度时可设 emb_patch_lens: [48, 24, 12, 6]
+"common":
+  model: PatchMLP
+  loss: MSE
+  use_amp: false
+  dropout: 0.1
+  label_len: 48
+  d_model: 1024 
+  moving_avg: 13
+  e_layers: 1 
+  d_layers: 1
+  d_ff: 2048
+  factor: 1
+  n_heads: 8
+  learning_rate: 0.0001
+  batch_size: 32
+  train_epochs: 20
+  patience: 5
+  lradj: type1
+  use_norm: true
+  distil: true
+  embed: timeF
+  activation: gelu
+  optimizer: Adam
+
+"24":
+  batch_size: 32
+  e_layers: 14
+  d_model: 1024
+  dropout: 0.1
+  learning_rate: 0.0001
+  moving_avg: 5
+
+
+"36":
+  batch_size: 32
+  e_layers: 14
+  d_model: 1024
+  dropout: 0.1
+  learning_rate: 0.0001
+  moving_avg: 5
+
+"48":
+  batch_size: 32
+  e_layers: 14
+  d_model: 1024
+  dropout: 0.1
+  learning_rate: 0.0001
+  moving_avg: 5
+
+"60":
+  batch_size: 32
+  e_layers: 14
+  d_model: 1024
+  dropout: 0.1
+  learning_rate: 0.0001
+  moving_avg: 5
