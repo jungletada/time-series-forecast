@@ -165,18 +165,30 @@ bash scripts/dep_long_term_forecast/ETTh1/WPMixer.sh
 ```
 注意文件夹`configs/models`里面的下不一定有`WPMixer_0.yaml`, `WPMixer_1.yaml`, `WPMixer_2.yaml`，需要复制`WPMixer.yaml`再自行创建。
 
+
 - NDA + FreEformer
 ```bash
 bash scripts/dep_long_term_forecast/ETTh1/FreEformer.sh
 ```
 注意文件夹`configs/models`里面的下不一定有`FreEformer_0.yaml`, `FreEformer_1.yaml`, `FreEformer_2.yaml`，需要复制`FreEformer.yaml`再自行创建。
 
+可以去参考的仓库找对应的超参数：https://github.com/jackyue1994/FreEformer
 
 - NDA + PatchMLP
 ```bash
 bash scripts/dep_long_term_forecast/ETTh1/PatchMLP.sh
 ```
 注意文件夹`configs/models`里面的下不一定有`PatchMLP_0.yaml`, `PatchMLP_1.yaml`, `PatchMLP_2.yaml`，需要复制`PatchMLP.yaml`再自行创建。
+
+可以去参考的仓库找对应的超参数：https://github.com/TangPeiwang/PatchMLP (我反正没找到)
+
+- NDA + RLinear
+```bash
+bash scripts/dep_long_term_forecast/ETTh1/RLinear.sh
+```
+注意文件夹`configs/models`里面的下不一定有`RLinear_0.yaml`, `RLinear_1.yaml`, `RLinear_2.yaml`，需要复制`RLinear.yaml`再自行创建。
+
+可以去参考的仓库找对应的超参数：https://github.com/plumprc/RTSF
 
 
 ## Citation
