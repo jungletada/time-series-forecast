@@ -89,17 +89,25 @@ class Dataset_Custom_Decomposed(Dataset):
         self.use_mnn = True if getattr(args, 'use_mnn', 0) == 1 else False
         self.__read_data__()
 
-    def _read_solar_raw(self, file_path):
-        df_raw = []
-        with open(file_path, "r", encoding='utf-8') as f:
-            for line in f.readlines():
-                line = line.strip('\n')
-                if not line:
-                    continue
-                data_line = np.stack([float(i) for i in line.split(',')])
-                df_raw.append(data_line)
-        df_raw = np.stack(df_raw, 0)
-        return pd.DataFrame(df_raw)
+    def _read_solar_raw(self, local_fp):
+        if self.data_path.endswith('.txt'):
+            out_fp = os.path.join(self.root_path, 'solar_AL.csv')
+            df_raw = []
+            with open(local_fp, "r", encoding='utf-8') as f:
+                for line in f.readlines():
+                    line = line.strip('\n')
+                    if not line:
+                        continue
+                    data_line = np.stack([float(i) for i in line.split(',')])
+                    df_raw.append(data_line)
+            df_raw = np.stack(df_raw, 0)
+            df_out = pd.DataFrame(df_raw)
+            df_out.to_csv(out_fp, index=False, encoding='utf-8')
+        elif self.data_path.endswith('.csv'):
+            df_out = pd.read_csv(local_fp)
+        else:
+            raise ValueError(f"Unsupported data format: {self.data_path}")
+        return df_out
         
     def __read_data__(self):
         self.scaler = StandardScaler()

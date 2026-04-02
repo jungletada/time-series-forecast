@@ -64,7 +64,7 @@ Electricity:
 Solar:
   data_type: Solar
   root_path: dataset/Solar/
-  data_path: solar_AL.txt
+  data_path: solar_AL.csv
   target: OT
   channels: 137
 
@@ -204,7 +204,7 @@ PEMS08_dep:
 Solar_dep:
   data_type: Solar_dep
   root_path: dataset/Solar/
-  data_path: solar_AL.txt
+  data_path: solar_AL.csv
   selected_k: 4
   channels: 137
   target: -1
