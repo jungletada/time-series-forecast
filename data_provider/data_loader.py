@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 from data_provider.m4 import M4Dataset, M4Meta
@@ -225,10 +225,13 @@ class Dataset_Custom(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, time_enc=0, freq='h', 
-                 seasonal_patterns=None, split_ratio=(0.7, 0.2)):
+                 seasonal_patterns=None, split_ratio=(0.7, 0.2),
+                 train_ratio=1.0, data_format='custom'):
         # [seq_len, label_len, pred_len]
         self.args = args
         self.split_ratio = split_ratio
+        self.train_ratio = train_ratio
+        self.data_format = data_format
         # info
         if size == None:
             self.seq_len = 24 * 4 * 4
@@ -241,6 +244,7 @@ class Dataset_Custom(Dataset):
         # initialize
         assert flag in ['train', 'test', 'val']
         type_map = {'train': 0, 'val': 1, 'test': 2}
+        self.flag = flag
         self.set_type = type_map[flag]
 
         self.features = features
@@ -258,6 +262,11 @@ class Dataset_Custom(Dataset):
         self.scaler = StandardScaler()
         local_fp = os.path.join(self.root_path, self.data_path)
         cfg_name = os.path.splitext(os.path.basename(self.data_path))[0]
+
+        if self.data_format == 'solar':
+            df_raw = self._read_solar_raw(local_fp)
+            self._read_solar_data(df_raw)
+            return
 
         if os.path.exists(local_fp):
             df_raw = pd.read_csv(local_fp)
@@ -312,10 +321,50 @@ class Dataset_Custom(Dataset):
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
 
-        if self.set_type == 0 and self.args.augmentation_ratio > 0:
+        augmentation_ratio = getattr(self.args, 'augmentation_ratio', 0)
+        if self.set_type == 0 and augmentation_ratio > 0:
             self.data_x, self.data_y, augmentation_tags = run_augmentation_single(self.data_x, self.data_y, self.args)
 
         self.data_stamp = data_stamp
+        self.use_dummy_time_mark = False
+
+    def _read_solar_raw(self, local_fp):
+        df_raw = []
+        with open(local_fp, "r", encoding='utf-8') as f:
+            for line in f.readlines():
+                line = line.strip('\n')
+                if not line:
+                    continue
+                data_line = np.stack([float(i) for i in line.split(',')])
+                df_raw.append(data_line)
+        df_raw = np.stack(df_raw, 0)
+        return pd.DataFrame(df_raw)
+
+    def _read_solar_data(self, df_raw):
+        num_train = int(len(df_raw) * 0.7)
+        num_test = int(len(df_raw) * 0.2)
+        num_valid = int(len(df_raw) * 0.1)
+        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
+        border2s = [num_train, num_train + num_valid, len(df_raw)]
+        border1 = border1s[self.set_type]
+        border2 = border2s[self.set_type]
+
+        if self.flag == 'train' and self.train_ratio < 1:
+            border1 = int(border1 + (border2 - border1) * (1 - self.train_ratio))
+
+        df_data = df_raw.values
+
+        if self.scale:
+            train_data = df_data[border1s[0]:border2s[0]]
+            self.scaler.fit(train_data)
+            data = self.scaler.transform(df_data)
+        else:
+            data = df_data
+
+        self.data_x = data[border1:border2]
+        self.data_y = data[border1:border2]
+        self.data_stamp = None
+        self.use_dummy_time_mark = True
 
     def __getitem__(self, index):
         s_begin = index
@@ -325,8 +374,12 @@ class Dataset_Custom(Dataset):
 
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
+        if self.use_dummy_time_mark:
+            seq_x_mark = torch.zeros((seq_x.shape[0], 1))
+            seq_y_mark = torch.zeros((seq_x.shape[0], 1))
+        else:
+            seq_x_mark = self.data_stamp[s_begin:s_end]
+            seq_y_mark = self.data_stamp[r_begin:r_end]
         
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
@@ -335,6 +388,27 @@ class Dataset_Custom(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+class Dataset_Solar(Dataset_Custom):
+    def __init__(self, args, root_path, flag='train', size=None,
+                 features='M', data_path='solar_AL.txt',
+                 target='OT', scale=True, time_enc=0, freq='h', 
+                 seasonal_patterns=None, split_ratio=(0.7, 0.2),
+                 train_ratio=1.0, data_format='solar'):
+        super().__init__(
+            args=args,
+            root_path=root_path,
+            flag=flag,
+            size=size,
+            features=features,
+            data_path=data_path,
+            target=target,
+            scale=scale,
+            time_enc=time_enc,
+            freq=freq,
+            train_ratio=train_ratio,
+            data_format='solar',
+        )
 
 class Dataset_PEMS(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,

@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument('--num_imf', type=int, default=3, help='number of imfs')
     parser.add_argument('--model_id', type=str, default='TCN+NDA', help='model id')
     parser.add_argument('--model', type=str, default='TCN', help='model name')
-    parser.add_argument('--data_config', type=str, default='configs/datasets/dep_dataset.yaml', help='data config')
+    parser.add_argument('--data_config', type=str, default='configs/datasets/dataset.yaml', help='data config')
     parser.add_argument('--model_configs', type=str, nargs=3, default=None,
                         help='three yaml files for three models')
     parser.add_argument('--model_config', type=str, default=None, help='model config')

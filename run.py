@@ -7,7 +7,6 @@ import json
 import torch
 import torch.backends
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-from exp.exp_long_term_forecasting_nda import Exp_Long_Term_Forecas_NDA
 from utils.tools import seed_everything, apply_data_config, apply_model_config
 from utils.str2bool import str2bool
 
@@ -57,6 +56,7 @@ def get_args():
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%%)')
 
     # model define
+    parser.add_argument('--rev', type=str2bool, default=False, help='whether to apply RevIN')
     parser.add_argument('--nda_patch', type=int, default=4, help='patch length for NDA')
     parser.add_argument('--expand', type=int, default=2, help='expansion factor for Mamba')
     parser.add_argument('--d_conv', type=int, default=4, help='conv kernel size for Mamba')

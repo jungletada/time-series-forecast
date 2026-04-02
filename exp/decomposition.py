@@ -73,8 +73,7 @@ class LongTermDecomposition:
                 'start': [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len],
                 'end':   [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
             }
-        elif self.data_type == 'custom':
-            # print(f"num_train: {num_train}, num_test: {num_test}, num_val: {num_val}")
+        elif self.data_type in ['custom', 'Solar']:
             border = {
                 'start': [0, num_train - self.seq_len, total_len - num_test - self.seq_len],
                 'end':   [num_train, num_train + num_val, total_len]
@@ -82,6 +81,32 @@ class LongTermDecomposition:
         else:
             raise ValueError(f"Invalid data type: {self.data_type}")
         return border
+
+    def _read_solar_raw(self):
+        df_raw = []
+        with open(self.file_path, "r", encoding='utf-8') as f:
+            for line in f.readlines():
+                line = line.strip('\n')
+                if not line:
+                    continue
+                data_line = np.stack([float(i) for i in line.split(',')])
+                df_raw.append(data_line)
+        df_raw = np.stack(df_raw, 0)
+        return pd.DataFrame(df_raw)
+
+    def _read_long_term_data(self):
+        if self.data_type == 'Solar':
+            df = self._read_solar_raw()
+            data = df.values
+            return df, data
+
+        df = pd.read_csv(self.file_path)
+        cols_to_drop = [c for c in df.columns if c in ['date', 'Date', 'Time', 'time']]
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+        df = df.select_dtypes(include=[np.number])
+        data = df.values
+        return df, data
 
     def _decompose_and_pad(self, series_values):
         try:
@@ -123,29 +148,22 @@ class LongTermDecomposition:
 
     def run(self):
         print(f"\nProcessing: {self.file_path}")
-        df = pd.read_csv(self.file_path)
-        
-        cols_to_drop = [c for c in df.columns if c in ['date', 'Date', 'Time', 'time']]
-        if cols_to_drop: df = df.drop(columns=cols_to_drop)
-        # 确保全是数值
-        df = df.select_dtypes(include=[np.number])
-        data = df.values
+        df, data = self._read_long_term_data()
 
         # 获取切分点
         total_len = len(df)
         border = self._get_borders(total_len)
+        s0 = border['start'][0]
+        e0 = border['end'][0]
+        s1 = border['start'][1]
+        e1 = border['end'][1]
+        s2 = border['start'][2]
+        e2 = border['end'][2]
         
         # ================== 修改部分开始 ==================
         # --- 数据标准化 (Fit on Train, Transform All) ---
         if self.scale:
             print("  > Executing Standardization (Fit on Train set)...")
-            # 获取训练集的结束索引
-            s0 = border['start'][0] # 通常是0，但为了严谨使用 border
-            e0 = border['end'][0]
-            s1 = border['start'][1]
-            e1 = border['end'][1]
-            s2 = border['start'][2]
-            e2 = border['end'][2]
             # 1. 仅在训练集上 fit
             train_data_for_fit = data[s0:e0, :]
             self.scaler.fit(train_data_for_fit)
@@ -183,7 +201,7 @@ class LongTermDecomposition:
         print(f"val_tensor: {val_tensor.shape}")
         print(f"test_tensor: {test_tensor.shape}")
 
-        base_name = self.file_path.replace('.csv', '')
+        base_name, _ = os.path.splitext(self.file_path)
         scale_suffix = "_scaled" if self.scale else "" 
         suffix = f"_sl{self.seq_len}{scale_suffix}_cd" 
 
@@ -345,14 +363,15 @@ class ShortTermDecomposition:
        
 def decompose_long_term_data(data_root, K_IMFS):
     DATA_LIST = [
-        (f'{data_root}/ETT-small', 'ETTh', 'ETTh1.csv'),
-        (f'{data_root}/ETT-small', 'ETTh', 'ETTh2.csv'),
-        (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
-        (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
-        (f'{data_root}/electricity', 'custom', 'electricity.csv'),
-        (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
-        (f'{data_root}/weather', 'custom', 'weather.csv'),
-        (f'{data_root}/traffic', 'custom', 'traffic.csv'),
+        # (f'{data_root}/ETT-small', 'ETTh', 'ETTh1.csv'),
+        # (f'{data_root}/ETT-small', 'ETTh', 'ETTh2.csv'),
+        # (f'{data_root}/ETT-small', 'ETTm', 'ETTm1.csv'),
+        # (f'{data_root}/ETT-small', 'ETTm', 'ETTm2.csv'),
+        # (f'{data_root}/electricity', 'custom', 'electricity.csv'),
+        # (f'{data_root}/exchange_rate','custom', 'exchange_rate.csv'),
+        # (f'{data_root}/weather', 'custom', 'weather.csv'),
+        # (f'{data_root}/traffic', 'custom', 'traffic.csv'),
+        (f'{data_root}/Solar', 'Solar', 'solar_AL.txt'),
         ]
     seq_lens = [96, 192, 336, 720]
     # shape [time_length, num_variables, num_imfs]
@@ -366,19 +385,19 @@ def decompose_long_term_data(data_root, K_IMFS):
                 seq_len=seq_len)
             decomposer.run()
     
-    ILL_DATA_LIST = [
-        (f'{data_root}/illness', 'custom', 'national_illness.csv'),
-    ]
-    seq_lens = [24, 36, 48, 60] 
-    for data_path, data_type, data_file in ILL_DATA_LIST:
-        for seq_len in seq_lens:
-            decomposer = LongTermDecomposition(
-                data_type=data_type,
-                root_path=data_path,
-                data_file=data_file,
-                max_imfs=K_IMFS,
-                seq_len=seq_len)
-            decomposer.run()
+    # ILL_DATA_LIST = [
+    #     (f'{data_root}/illness', 'custom', 'national_illness.csv'),
+    # ]
+    # seq_lens = [24, 36, 48, 60] 
+    # for data_path, data_type, data_file in ILL_DATA_LIST:
+    #     for seq_len in seq_lens:
+    #         decomposer = LongTermDecomposition(
+    #             data_type=data_type,
+    #             root_path=data_path,
+    #             data_file=data_file,
+    #             max_imfs=K_IMFS,
+    #             seq_len=seq_len)
+    #         decomposer.run()
  
  
 def decompose_short_term_data(data_root, K_IMFS):
@@ -395,5 +414,5 @@ def decompose_short_term_data(data_root, K_IMFS):
 if __name__ == "__main__":
     K_IMFS = 15
     data_root = 'dataset'
-    # decompose_long_term_data(data_root, K_IMFS)
-    decompose_short_term_data(data_root, K_IMFS)
+    decompose_long_term_data(data_root, K_IMFS)
+    # decompose_short_term_data(data_root, K_IMFS)

@@ -53,10 +53,22 @@ def merge_components(data_npy, k):
     return decomp_data
 
 class Dataset_Custom_Decomposed(Dataset):
-    def __init__(self, args, root_path, flag='train', size=None, features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, time_enc=0, freq='h', seasonal_patterns=None):
+    def __init__(self, 
+                 args, 
+                 root_path, 
+                 flag='train', 
+                 size=None, 
+                 features='S', 
+                 data_path='ETTh1.csv',
+                 target='OT', 
+                 scale=True, 
+                 time_enc=0, 
+                 freq='h', 
+                 seasonal_patterns=None,
+                 data_format='custom'):
         self.args = args
         self.mnn = args.mnn
+        self.data_format = data_format
         # size [seq_len, label_len, pred_len]
         self.seq_len = size[0]
         self.label_len = size[1]
@@ -76,12 +88,24 @@ class Dataset_Custom_Decomposed(Dataset):
         self.k = getattr(args, 'pivot', 1) # 增加默认值防止报错
         self.use_mnn = True if getattr(args, 'use_mnn', 0) == 1 else False
         self.__read_data__()
+
+    def _read_solar_raw(self, file_path):
+        df_raw = []
+        with open(file_path, "r", encoding='utf-8') as f:
+            for line in f.readlines():
+                line = line.strip('\n')
+                if not line:
+                    continue
+                data_line = np.stack([float(i) for i in line.split(',')])
+                df_raw.append(data_line)
+        df_raw = np.stack(df_raw, 0)
+        return pd.DataFrame(df_raw)
         
     def __read_data__(self):
         self.scaler = StandardScaler()
         fname_map = {0: 'train', 1: 'val', 2: 'test'}
         current_flag_name = fname_map[self.set_type]
-        # decomposition.py 生成的文件名应该包含 _scaled_cd
+        # decomposition.py 生成的文件名包含 _scaled_cd
         npy_path = os.path.join(self.root_path, f"{self.base_name}_{current_flag_name}_sl{self.seq_len}_scaled_cd.npy")
         
         if os.path.exists(npy_path):
@@ -89,9 +113,14 @@ class Dataset_Custom_Decomposed(Dataset):
         else:
             raise FileNotFoundError(f"Decomposed data not found: {npy_path}")
         
-        # 2. 读取 CSV 获取原始数据和时间戳
-        csv_path = os.path.join(self.root_path, self.data_path)
-        df_raw = pd.read_csv(csv_path)
+        # 2. 读取原始数据，Solar 与 Custom 保持和 data_loader 一致的读取方式
+        file_path = os.path.join(self.root_path, self.data_path)
+        is_solar_format = self.data_format == 'solar' or os.path.splitext(self.data_path)[1].lower() == '.txt'
+        if is_solar_format:
+            df_raw = self._read_solar_raw(file_path)
+        else:
+            df_raw = pd.read_csv(file_path)
+
         num_train = int(len(df_raw) * 0.7) 
         num_test = int(len(df_raw)  * 0.2)
         num_vali = len(df_raw) - num_train - num_test
@@ -118,24 +147,34 @@ class Dataset_Custom_Decomposed(Dataset):
         else:
             self.borders = self.border_map['custom']
         
-        if self.features == 'M' or self.features == 'MS':
-            # 取所有数据列
-            cols_data = df_raw.columns[1:] 
-            df_data = df_raw[cols_data]
+        if is_solar_format:
+            if self.features == 'M' or self.features == 'MS':
+                df_data = df_raw
+            elif self.features == 'S':
+                target_idx = int(self.target)
+                df_data = df_raw.iloc[:, [target_idx]]
+                data_npy = data_npy[:, target_idx:target_idx+1, :]
+            else:
+                raise ValueError(f"Features {self.features} is not valid")
 
-        elif self.features == 'S':
-            if self.target not in df_raw.columns:
-                raise ValueError(f"Target {self.target} not found.")
-            # 找到 target 在 "数据列" (去除date后) 中的索引
-            data_cols = list(df_raw.columns[1:])
-            target_idx = data_cols.index(self.target)
-            df_data = df_raw[[self.target]]
-            # NPY 数据也必须只保留 target 对应的通道
-            # data_npy: [T, Total_C, K] -> [T, 1, K]
-            data_npy = data_npy[:, target_idx:target_idx+1, :]
-            
         else:
-            raise ValueError(f"Features {self.features} is not valid")
+            if self.features == 'M' or self.features == 'MS':
+                # 取所有数据列
+                cols_data = df_raw.columns[1:] 
+                df_data = df_raw[cols_data]
+
+            elif self.features == 'S':
+                if self.target not in df_raw.columns:
+                    raise ValueError(f"Target {self.target} not found.")
+                # 找到 target 在 "数据列" (去除date后) 中的索引
+                data_cols = list(df_raw.columns[1:])
+                target_idx = data_cols.index(self.target)
+                df_data = df_raw[[self.target]]
+                # NPY 数据也必须只保留 target 对应的通道
+                # data_npy: [T, Total_C, K] -> [T, 1, K]
+                data_npy = data_npy[:, target_idx:target_idx+1, :]
+            else:
+                raise ValueError(f"Features {self.features} is not valid")
 
         # 3. 处理时间戳 (使用 .dt 加速)
         start_idx = self.borders['start'][self.set_type]
@@ -149,23 +188,26 @@ class Dataset_Custom_Decomposed(Dataset):
             real_len = len(data_npy)
             end_idx = start_idx + real_len
 
-        df_stamp = df_raw[['date']][start_idx:end_idx].copy() # Copy avoid warning
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        
-        if self.time_enc == 0:
-            # 使用 .dt 访问器优化性能 (比 .apply 快很多)
-            df_stamp['month'] = df_stamp.date.dt.month
-            df_stamp['day'] = df_stamp.date.dt.day
-            df_stamp['weekday'] = df_stamp.date.dt.weekday
-            df_stamp['hour'] = df_stamp.date.dt.hour
-            if 'ETTm' in self.data_path:
-                df_stamp['minute'] = df_stamp.date.dt.minute
-                df_stamp['minute'] = df_stamp['minute'] // 15
-                
-            data_stamp = df_stamp.drop(['date'], axis=1).values
-        elif self.time_enc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.args.freq)
-            data_stamp = data_stamp.transpose(1, 0)
+        if is_solar_format:
+            data_stamp = np.zeros((end_idx - start_idx, 1))
+        else:
+            df_stamp = df_raw[['date']][start_idx:end_idx].copy() # Copy avoid warning
+            df_stamp['date'] = pd.to_datetime(df_stamp.date)
+            
+            if self.time_enc == 0:
+                # 使用 .dt 访问器优化性能 (比 .apply 快很多)
+                df_stamp['month'] = df_stamp.date.dt.month
+                df_stamp['day'] = df_stamp.date.dt.day
+                df_stamp['weekday'] = df_stamp.date.dt.weekday
+                df_stamp['hour'] = df_stamp.date.dt.hour
+                if 'ETTm' in self.data_path:
+                    df_stamp['minute'] = df_stamp.date.dt.minute
+                    df_stamp['minute'] = df_stamp['minute'] // 15
+                    
+                data_stamp = df_stamp.drop(['date'], axis=1).values
+            elif self.time_enc == 1:
+                data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.args.freq)
+                data_stamp = data_stamp.transpose(1, 0)
 
         #########################################################
         # 4. 合并分量

@@ -12,6 +12,7 @@ from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics import metric
 from utils.dtw_metric import dtw, accelerated_dtw
+from utils.loss import WeightedL1Loss
 
 warnings.filterwarnings('ignore')
 
@@ -61,12 +62,66 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         """
         model_args = self.args.model_args_list[component_idx]
         lr = model_args.learning_rate
-        model_optim = optim.Adam(model.parameters(), lr=lr)
+        if self.args.optimizer == 'AdamW':
+            model_optim = optim.AdamW(
+                model.parameters(),
+                lr=lr,
+                weight_decay=0.01,
+                betas=(0.9, 0.999),   
+                eps=1e-8                     
+            )
+        elif self.args.optimizer == 'Adam':
+            model_optim = optim.Adam(
+                model.parameters(), 
+                lr=lr)
+            
+        elif self.args.optimizer == 'SGD':
+            model_optim = optim.SGD(
+                model.parameters(),
+                lr=lr,
+                momentum=0.9,
+                weight_decay=0.01                     
+            )
+        elif self.args.optimizer == 'RMSprop':
+            model_optim = optim.RMSprop(
+                model.parameters(),
+                lr=lr,
+                momentum=0.9,
+                weight_decay=0.01                     
+            )
+        elif self.args.optimizer == 'Adagrad':
+            model_optim = optim.Adagrad(
+                model.parameters(),
+                lr=lr,
+                weight_decay=0.01                     
+            )
+        elif self.args.optimizer == 'Adadelta':
+            model_optim = optim.Adadelta(
+                model.parameters(),
+                lr=lr,
+                weight_decay=0.01                     
+            )
+        elif self.args.optimizer == 'LBFGS':
+            model_optim = optim.LBFGS(
+                model.parameters(),
+                lr=lr,
+                weight_decay=0.01                     
+            )
+        else:
+            raise ValueError(f"Invalid optimizer: {self.args.optimizer}")
+
         self.logger.info(f"Built Optimizer for Component-{component_idx} with lr={lr}")
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.MSELoss()
+        if self.args.loss == 'MSE':
+            criterion = nn.MSELoss()
+        elif self.args.loss == 'L1':
+            criterion = nn.L1Loss()
+        elif self.args.loss == 'WeightedL1':
+            criterion = WeightedL1Loss(self.args.lossfun_alpha, self.args.loss_mode)
+        else:
+            raise ValueError(f"Invalid loss: {self.args.loss}")
         return criterion
     
     def _train_single_component(self, model, model_args, component_idx, setting, train_loader, vali_loader, test_loader):

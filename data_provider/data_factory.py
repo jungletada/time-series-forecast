@@ -1,6 +1,6 @@
 from data_provider.data_loader import \
     Dataset_ETT_hour, Dataset_ETT_minute, \
-    Dataset_Custom, Dataset_M4, Dataset_PEMS, \
+    Dataset_Custom, Dataset_M4, Dataset_PEMS, Dataset_Solar, \
     PSMSegLoader, MSLSegLoader, \
     SMAPSegLoader, SMDSegLoader, \
     SWATSegLoader, UEAloader
@@ -16,6 +16,7 @@ data_dict = {
     'ETTh2': Dataset_ETT_hour,
     'ETTm1': Dataset_ETT_minute,
     'ETTm2': Dataset_ETT_minute,
+    'Solar': Dataset_Solar,
     'custom': Dataset_Custom,
     'PEMS': Dataset_PEMS,
     'm4': Dataset_M4,
@@ -29,6 +30,7 @@ data_dict = {
     'ETTh2_dep': Dataset_Custom_Decomposed,
     'ETTm1_dep': Dataset_Custom_Decomposed,
     'ETTm2_dep': Dataset_Custom_Decomposed,
+    'Solar_dep': Dataset_Custom_Decomposed,
     'Exchange_dep': Dataset_Custom_Decomposed,
     'Illness_dep': Dataset_Custom_Decomposed,
     'Weather_dep': Dataset_Custom_Decomposed,
@@ -84,8 +86,8 @@ def data_provider(args, flag):
     else:
         if args.data_type == 'm4':
             drop_last = False
-        data_set = DataSet(
-            args = args,
+        dataset_kwargs = dict(
+            args=args,
             root_path=args.root_path,
             data_path=args.data_path,
             flag=flag,
@@ -94,7 +96,13 @@ def data_provider(args, flag):
             target=args.target,
             time_enc=time_enc,
             freq=freq,
-            seasonal_patterns=args.seasonal_patterns
+            seasonal_patterns=args.seasonal_patterns,
+        )
+        if args.data_type in ['Solar', 'Solar_dep']:
+            dataset_kwargs['data_format'] = 'solar'
+            # dataset_kwargs['train_ratio'] = getattr(args, 'train_ratio', 1.0)
+        data_set = DataSet(
+            **dataset_kwargs
         )
         print(flag, f"length of data set: {len(data_set)}")
         

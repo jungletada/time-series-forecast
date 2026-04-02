@@ -1,0 +1,29 @@
+common:
+  batch_size: 128
+  individual: false
+  d_model: 512
+  layers: 2
+  embed: timeF
+  rev: true
+  drop: 0.1
+  train_epochs: 15
+  patience: 10
+  learning_rate: 0.001
+  lradj: type1
+  use_amp: false
+
+96:
+  d_model: 512
+  dropout: 0.1
+
+192:
+  d_model: 512
+  dropout: 0.1
+
+336:
+  d_model: 512
+  dropout: 0.1
+
+720:
+  d_model: 512
+  dropout: 0.1
