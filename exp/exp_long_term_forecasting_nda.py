@@ -33,7 +33,6 @@ class Exp_Long_Term_Forecas_NDA(Exp_Basic):
 
     def _select_optimizer(self):
         # AdamW is used just like Adam, but it decouples weight decay from the gradient update.
-        # Example usage:
         model_optim = optim.AdamW(
             self.model.parameters(),
             lr=self.args.learning_rate,
@@ -165,7 +164,6 @@ class Exp_Long_Term_Forecas_NDA(Exp_Basic):
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
-
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []

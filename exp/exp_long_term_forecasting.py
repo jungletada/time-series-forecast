@@ -290,12 +290,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 if self.args.visualize == 1 and i % 2 == 0:
                     input = batch_x.detach().cpu().numpy()
                     if test_data.scale and self.args.inverse:
-                        # print(f">>>>>>>>>>>>> test_data.scale: {test_data.scale}, self.args.inverse: {self.args.inverse}")
                         shape = input.shape
                         input = test_data.inverse_transform(input.reshape(shape[0] * shape[1], -1)).reshape(shape)
-                    
                     horizon_len = len(input[0, :, -1])
-                    # print(f">>>>>>>>>>>>> input.shape: {input[0, :, -1].shape}")
                     label = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     prediction = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
@@ -308,7 +305,20 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
-        
+
+        if self.args.visualize == 1:
+            true_full = trues[:, :, -1].reshape(-1)
+            pred_full = preds[:, :, -1].reshape(-1)
+            full_pdf = os.path.join(visual_path, 'full_pred_vs_true.pdf')
+            visual(
+                true_full,
+                pred_full,
+                None,
+                full_pdf,
+                title=self.args.model_id,
+                figsize=(48, 6))
+            self.logger.info(f"Saved full pred vs true comparison to {full_pdf}")
+
         self.logger.info(f'test shape: {preds.shape}, {trues.shape}')
         avg_latency = (inference_time / (i + 1)) * 1000
         self.logger.info("Average Inference Latency: {:.2f} ms/batch".format(avg_latency))
@@ -720,6 +730,21 @@ class Exp_Long_Term_Forecast_OLinear(Exp_Basic):
         # preds_array = np.array(preds)
         preds_array = np.concatenate(preds, axis=0)
         trues_array = np.concatenate(trues, axis=0)
+
+        if self.args.visualize == 1:
+            if not os.path.exists(visual_path):
+                os.makedirs(visual_path)
+            true_full = trues_array[:, :, -1].reshape(-1)
+            pred_full = preds_array[:, :, -1].reshape(-1)
+            full_pdf = os.path.join(visual_path, 'full_pred_vs_true.pdf')
+            visual(
+                true_full,
+                pred_full,
+                None,
+                full_pdf,
+                title=self.args.model_id,
+                figsize=(48, 6))
+            self.logger.info(f"Saved full pred vs true comparison to {full_pdf}")
 
         self.logger.info(f'[test] preds_array.shape: {preds_array.shape}, trues_array.shape: {trues_array.shape}')
 

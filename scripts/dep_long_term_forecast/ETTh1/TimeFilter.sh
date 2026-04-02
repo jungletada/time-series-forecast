@@ -5,7 +5,7 @@ model_configs=(
     configs/models/ETTh1/Timefilter_1.yaml 
     configs/models/ETTh1/Timefilter_2.yaml)
     
-pred_lens=(96 192 336 720)
+pred_lens=(96)
 
 for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
@@ -25,7 +25,7 @@ for pred_len in "${pred_lens[@]}"; do
     python -u run_dep.py \
         --task_name long_term_forecast \
         --is_training 0 \
-        --use_mnn 1 \
+        --use_mnn 0 \
         --model $model_name \
         --model_configs ${model_configs[@]} \
         --data_name $dataset \

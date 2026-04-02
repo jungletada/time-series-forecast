@@ -325,11 +325,11 @@ class StandardScaler():
     def inverse_transform(self, data):
         return (data * self.std) + self.mean
 
-def visual(true, preds, horizon_len=None, name='./pic/test.pdf', title=None):
+def visual(true, preds, horizon_len=None, name='./pic/test.pdf', title=None, figsize=(7, 6)):
     """
     Results visualization
     """
-    plt.figure(figsize=(7, 6))
+    plt.figure(figsize=figsize)
     plt.style.use('seaborn-v0_8-whitegrid')
     ax = plt.gca()
     ax.tick_params(labelsize=21)

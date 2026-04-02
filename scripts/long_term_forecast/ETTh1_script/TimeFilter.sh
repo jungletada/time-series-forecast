@@ -1,7 +1,7 @@
 model_name=TimeFilter
 model_id=TimeFilter
 seq_len=96
-pred_lens=(96 192 336 720)
+pred_lens=(96)
 dropout=(0.8 0.8 0.8 0.8)
 patch_len=(2 2 2 2)
 d_model=(128 128 128 128)
@@ -15,7 +15,7 @@ python -u run.py \
   --data_name ETTh1 \
   --model_id $model_name \
   --model $model_id \
-  --features M \
+  --features S \
   --seq_len $seq_len \
   --label_len 48 \
   --pred_len ${pred_lens[$i]} \

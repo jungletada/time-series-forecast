@@ -16,14 +16,15 @@ from utils.dtw_metric import dtw, accelerated_dtw
 warnings.filterwarnings('ignore')
 
 class Exp_Dep_Long_Term_Forecast(Exp_Basic):
+    """
+     train and test the NDA-based long term forecasting model.
+    """
+    
     def __init__(self, args, logger):
         self.logger = logger
         self.logger.info(f'Initializing Exp_Long_Term_Forecast (Training {args.num_imf} Independent Models).')
         self.logger.info(f'Number of components: {args.num_imf}')
         super(Exp_Dep_Long_Term_Forecast, self).__init__(args)
-        
-        # [修改点 1]：不再在 init 里构建 self.model 列表
-        # 保持 self.model 为 None 或移除，避免占用显存
         self.model = None 
 
     def _build_model(self):
@@ -241,6 +242,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         base_path = os.path.join(self.args.checkpoints, setting['save_dir'])
         result_path = os.path.join(self.args.results, setting['save_dir'])
+        visual_path = os.path.join(result_path, 'visual')
+        if not os.path.exists(visual_path):
+            os.makedirs(visual_path)
         if not os.path.exists(result_path):
             os.makedirs(result_path)
 
@@ -340,41 +344,80 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
         # 将 list of arrays stack 起来 -> [K, N, Pred, C] -> sum axis 0 -> [N, Pred, C]
         preds_sum = np.sum(np.stack(preds_comps_all), axis=0)
         
-        # 真值部分：需要从原始数据中获取 total target
-        # 为了方便，我们可以直接再次遍历一次 loader 拿原始 target (虽然稍微慢点，但逻辑简单)
-        # 或者使用 decomposition 的性质：Sum(trues_comps_all) ≈ Original (取决于分解是否有残差损失)
-        # 更严谨的做法是重新读一次 dataset 的 original target。
-        
-        # 这里为了保持和你之前代码一致的逻辑，我们重新遍历一次 loader 只取原始 target
-        self.logger.info(">>> Retrieving Original Ground Truth... <<<")
+        # 严谨的做法是重新读一次 dataset：原始 target 与原始输入 batch_x[:, :, :, 0]（与 preds_sum 顺序一致）
+        self.logger.info(">>>>>>> Retrieving Original Input / Ground Truth... <<<")
         trues_original = []
+        inputs_original = []
         with torch.no_grad():
-             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 f_dim = -1 if self.args.features == 'MS' else 0
+                batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
-                
-                # 取原始数据 (index 0)
+                inp_orig = batch_x[:, :, :, 0]
                 orig = batch_y[:, :, :, 0]
                 orig = orig[:, -self.args.pred_len:, f_dim:]
+                inputs_original.append(inp_orig.detach().cpu().numpy())
                 trues_original.append(orig.detach().cpu().numpy())
-                
+
         trues_total = np.concatenate(trues_original, axis=0)
-        
+        inputs_total = np.concatenate(inputs_original, axis=0)
+
         # 3. 反归一化
         if test_data.scale and self.args.inverse:
             shape = preds_sum.shape
             preds_total = test_data.inverse_transform(preds_sum.reshape(-1, shape[-1])).reshape(shape)
-            trues_total = test_data.inverse_transform(trues_total.reshape(-1, shape[-1])).reshape(shape)
+            trues_total = test_data.inverse_transform(
+                trues_total.reshape(-1, trues_total.shape[-1])).reshape(trues_total.shape)
+            shape_in = inputs_total.shape
+            inputs_total = test_data.inverse_transform(
+                inputs_total.reshape(-1, shape_in[-1])).reshape(shape_in)
         else:
             preds_total = preds_sum
-            # trues_total 已经是原始值了？取决于 dataset 实现。通常 inverse_transform 是必要的。
+
+        if self.args.visualize == 1:
+            offset = 0
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+                bs = batch_x.shape[0]
+                if i % 2 == 0:
+                    idx = offset
+                    input_np = inputs_total[idx]
+                    horizon_len = input_np.shape[0]
+                    hist = input_np[:, -1]
+                    true_f = trues_total[idx, :, -1]
+                    pred_f = preds_total[idx, :, -1]
+                    label = np.concatenate((hist, true_f), axis=0)
+                    prediction = np.concatenate((hist, pred_f), axis=0)
+                    # 计算 true_f 和 pred_f 的均方误差（MSE）
+                    mse_cur = np.mean((true_f - pred_f) ** 2)
+                    self.logger.info(f"Sample-{i}: MSE between true and pred: {mse_cur:.6f}")
+                    pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
+                    visual(
+                        label,
+                        prediction,
+                        horizon_len,
+                        pdf_save_path,
+                        title=self.args.model_id)
+                    # self.logger.info(f"Saved visualization to {pdf_save_path}")
+                offset += bs
+
+            true_full = trues_total[:, :, -1].reshape(-1)
+            pred_full = preds_total[:, :, -1].reshape(-1)
+            full_pdf = os.path.join(visual_path, 'full_pred_vs_true.pdf')
+            visual(
+                true_full,
+                pred_full,
+                None,
+                full_pdf,
+                title=self.args.model_id,
+                figsize=(48, 6))
+            # self.logger.info(f"Saved full pred vs true comparison to {full_pdf}")
 
         self.logger.info(f'Total Test Shape: {preds_total.shape}')
         mae, mse, rmse, mape, mspe = metric(preds_total, trues_total)
         self.logger.info(f'>>>> TOTAL SUM Metrics (Original Scale) <<<<')
         self.logger.info('mse:{:.5f}, mae:{:.5f}, rmse:{:.5f}'.format(mse, mae, rmse))
 
-        # 保存
+        # Save results as numpy arrays
         np.save(os.path.join(result_path, 'metrics.npy'), np.array([mae, mse, rmse, mape, mspe]))
         np.save(os.path.join(result_path, 'pred.npy'), preds_total)
         np.save(os.path.join(result_path, 'true.npy'), trues_total)
