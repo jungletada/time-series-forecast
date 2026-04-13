@@ -1,0 +1,57 @@
+common:
+  model: TCN
+  des: test
+  loss: MSE
+  use_amp: false
+  dropout: 0.8
+  d_model: 130
+  e_layers: 3
+  d_layers: 3
+  patch_len: 2
+  use_norm: 0
+  top_p: 0.0
+  factor: 3
+  pos: 0
+  kernel_size: 6
+  learning_rate: 0.00053
+  batch_size: 120
+  train_epochs: 100
+  patience: 10
+  lradj: type1
+
+'96':
+  batch_size: 120
+  e_layers: 3
+  d_model: 130
+  dropout: 0.8
+  learning_rate: 0.00053
+  kernel_size: 3
+  d_ff: 138
+
+'192':
+  batch_size: 120
+  d_layers: 3
+  d_model: 130
+  dropout: 0.8
+  e_layers: 3
+  kernel_size: 3
+  learning_rate: 0.00053
+
+'336':
+  batch_size: 120
+  d_layers: 3
+  d_model: 130
+  dropout: 0.8
+  e_layers: 3
+  kernel_size: 7
+  learning_rate: 0.00053
+  
+'720':
+  batch_size: 120
+  d_layers: 3
+  d_model: 130
+  dropout: 0.8
+  e_layers: 3
+  kernel_size: 5
+  learning_rate: 0.00053
+

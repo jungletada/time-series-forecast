@@ -241,9 +241,13 @@ class Dataset_Custom_Decomposed(Dataset):
         self.data_decomp = data_processed                  # 存储分解信号 [T, C, K]
         self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
         self.data_stamp = data_stamp
-        
+        print(f">>>>>>>>>>>>> raw_scaled.shape: {raw_scaled.shape}")
+        print(f">>>>>>>>>>>>> data_original.shape: {self.data_original.shape}")
+        print(f">>>>>>>>>>>>> data_decomp.shape: {data_processed.shape}")
+        print(f">>>>>>>>>>>>> use_mnn: {self.use_mnn}, set_type: {self.set_type}")
         if self.use_mnn and self.set_type == 2:
-            self.__read_mnn_data__(self.data_original[start_idx:end_idx])
+            self.__read_mnn_data__(
+                test_raw_data=self.data_original)
         
     def __getitem__(self, index):
         s_begin = index
@@ -303,7 +307,8 @@ class Dataset_Custom_Decomposed(Dataset):
         data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
         data_mnn_test = np.load(data_mnn_test_path)
         num_vars = test_raw_data.shape[-1]
-        print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}, test_raw_data.shape: {test_raw_data.shape}")
+        print(f">>>>>>>>>>>>> Complte reading MNN data.\n"
+              f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}, test_raw_data.shape: {test_raw_data.shape}")
         
         if data_mnn_test.shape[-1] == self.args.num_imf - 1: # we only learn residual in training mnn
             data_mnn_test = data_mnn_test.reshape(-1, num_vars, self.args.num_imf - 1)
@@ -391,13 +396,6 @@ class Dataset_PEMS_Decomposed(Dataset):
             decomp_npy = decomp_npy[:, [self.target], :]    # (T, 1, K)
             raw_scaled = raw_scaled[:, [self.target]]       # (T, 1)
         
-        # 读取原始数据并标准化
-        # if self.scale:
-        #     self.scaler.fit(raw_scaled[s0:e0])
-        #     raw_scaled = self.scaler.transform(raw_scaled)            
-        # else:
-        #     raw_scaled = raw_scaled
-        # np.save(f"{self.base_name}_scaled_dataset.npy", raw_scaled)
         print(f">>>>>>>>>>>>> Scale, raw_data.shape: {raw_scaled.shape}, raw_scaled.shape: {raw_scaled.shape}")
         # 读取分量并合并为3个分量
         data_processed = merge_components(decomp_npy, self.k) # [T, C, K]
@@ -427,11 +425,15 @@ class Dataset_PEMS_Decomposed(Dataset):
         k = None if self.args.num_imf == 15 else self.k
         suffix = "_smoothed"
         prefix = "all" if k is None else "pred"
-        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
+        data_mnn_test_path = os.path.join(
+            self.root_path, 
+            f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
+        
         # =======================================================
         data_mnn_test = np.load(data_mnn_test_path)
         print(f">>>>>>>>>>>>> Loaded MNN test data from {data_mnn_test_path}, shape: {data_mnn_test.shape}")
         C = test_raw_data.shape[-1]
+        
         if data_mnn_test.shape[-1] == self.args.num_imf - 1: # Use Residual Data for Test
             data_mnn_test = data_mnn_test.reshape(-1, C, self.args.num_imf - 1) # (T, C, 2)
             remain = test_raw_data - data_mnn_test.sum(axis=-1) # (T, C)
@@ -440,6 +442,7 @@ class Dataset_PEMS_Decomposed(Dataset):
             
         elif data_mnn_test.shape[-1] == self.args.num_imf:
             self.data_mnn_test = data_mnn_test
+            print(f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}")
         else:
             raise ValueError(f"data_mnn_test.shape: {data_mnn_test.shape} is not valid")
                 
