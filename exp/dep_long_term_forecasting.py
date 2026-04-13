@@ -442,9 +442,9 @@ class Exp_Dep_Long_Term_Forecast(Exp_Basic):
                     pred_f = preds_total[idx, :, -1]
                     label = np.concatenate((hist, true_f), axis=0)
                     prediction = np.concatenate((hist, pred_f), axis=0)
-                    # 计算 true_f 和 pred_f 的均方误差（MSE）
-                    mse_cur = np.mean((true_f - pred_f) ** 2)
-                    self.logger.info(f"Sample-{i}: MSE between true and pred: {mse_cur:.6f}")
+                    ## 计算 true_f 和 pred_f 的均方误差（MSE）
+                    # mse_cur = np.mean((true_f - pred_f) ** 2)
+                    # self.logger.info(f"Sample-{i}: MSE between true and pred: {mse_cur:.6f}")
                     pdf_save_path = os.path.join(visual_path, str(i) + '.pdf')
                     visual(
                         label,

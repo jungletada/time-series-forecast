@@ -241,10 +241,10 @@ class Dataset_Custom_Decomposed(Dataset):
         self.data_decomp = data_processed                  # 存储分解信号 [T, C, K]
         self.data_original = raw_scaled[start_idx:end_idx] # 存储原始信号 [T, C]
         self.data_stamp = data_stamp
-        print(f">>>>>>>>>>>>> raw_scaled.shape: {raw_scaled.shape}")
-        print(f">>>>>>>>>>>>> data_original.shape: {self.data_original.shape}")
-        print(f">>>>>>>>>>>>> data_decomp.shape: {data_processed.shape}")
-        print(f">>>>>>>>>>>>> use_mnn: {self.use_mnn}, set_type: {self.set_type}")
+        # print(f">>>>>>>>>>>>> raw_scaled.shape: {raw_scaled.shape}")
+        # print(f">>>>>>>>>>>>> data_original.shape: {self.data_original.shape}")
+        # print(f">>>>>>>>>>>>> data_decomp.shape: {data_processed.shape}")
+        # print(f">>>>>>>>>>>>> use_mnn: {self.use_mnn}, set_type: {self.set_type}")
         if self.use_mnn and self.set_type == 2:
             self.__read_mnn_data__(
                 test_raw_data=self.data_original)
