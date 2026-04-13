@@ -304,11 +304,19 @@ class Dataset_Custom_Decomposed(Dataset):
         """
         suffix = "_smoothed"
         prefix = "all" if self.k is None else "pred"
-        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
+        data_mnn_test_path = os.path.join(self.root_path, f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_ft_{self.features}_scaled_cd{suffix}.npy")
         data_mnn_test = np.load(data_mnn_test_path)
         num_vars = test_raw_data.shape[-1]
         print(f">>>>>>>>>>>>> Complte reading MNN data.\n"
               f">>>>>>>>>>>>> data_mnn_test.shape: {data_mnn_test.shape}, test_raw_data.shape: {test_raw_data.shape}")
+        if num_vars != data_mnn_test.shape[1]:
+            print(f">>>>>>>>>>>>> Caution! You are using different number of variables in test data and MNN data.\n"
+                  f">>>>>>>>>>>>> num_vars: {num_vars}, data_mnn_test.shape[1]: {data_mnn_test.shape[1]}")
+            if num_vars == 1:
+                data_mnn_test = data_mnn_test[:, -1:, :]
+                print(f">>>>>>>>>>>>> Caution! After using last variable, data_mnn_test.shape is changed to {data_mnn_test.shape}")
+            else:
+                raise ValueError(f"num_vars: {num_vars} and data_mnn_test.shape[1]: {data_mnn_test.shape[1]} are not matched.")
         
         if data_mnn_test.shape[-1] == self.args.num_imf - 1: # we only learn residual in training mnn
             data_mnn_test = data_mnn_test.reshape(-1, num_vars, self.args.num_imf - 1)
@@ -427,7 +435,7 @@ class Dataset_PEMS_Decomposed(Dataset):
         prefix = "all" if k is None else "pred"
         data_mnn_test_path = os.path.join(
             self.root_path, 
-            f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_scaled_cd{suffix}.npy")
+            f"{prefix}_{self.base_name}_test_sl{self.seq_len}_{self.mnn}_ft_{self.features}_scaled_cd{suffix}.npy")
         
         # =======================================================
         data_mnn_test = np.load(data_mnn_test_path)

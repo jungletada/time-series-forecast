@@ -9,19 +9,19 @@ model_configs=(
 
 pivot=7
 for i in "${!pred_lens[@]}"; do
-    python -u run_dep.py \
-        --task_name long_term_forecast \
-        --is_training 1 \
-        --data_name $dataset \
-        --model $model_name \
-        --model_configs ${model_configs[@]} \
-        --model_id $model_id \
-        --pivot $pivot \
-        --features S \
-        --seq_len 96 \
-        --label_len 0 \
-        --pred_len ${pred_lens[$i]} \
-        --des 'Exp'
+    # python -u run_dep.py \
+    #     --task_name long_term_forecast \
+    #     --is_training 1 \
+    #     --data_name $dataset \
+    #     --model $model_name \
+    #     --model_configs ${model_configs[@]} \
+    #     --model_id $model_id \
+    #     --pivot $pivot \
+    #     --features S \
+    #     --seq_len 96 \
+    #     --label_len 0 \
+    #     --pred_len ${pred_lens[$i]} \
+    #     --des 'Exp'
     
     python -u run_dep.py \
         --task_name long_term_forecast \
